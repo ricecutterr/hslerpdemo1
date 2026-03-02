@@ -1,0 +1,1175 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Admin Configurator - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.nav-tabs .nav-link{font-weight:500;color:#1D2F34}.nav-tabs .nav-link.active{background:#1D2F34;color:white;border-color:#1D2F34}
+.table th{background:#1D2F34;color:white;font-weight:500;font-size:.85rem}
+.table td{vertical-align:middle;font-size:.9rem}
+.table tbody tr{transition:all .15s;cursor:pointer;border-left:4px solid transparent}
+.table tbody tr:hover{background:#e8f5e0 !important}
+.table tbody tr.selected{background:#c5e1a5 !important;border-left:4px solid #61993B;font-weight:500}
+.table tbody tr.selected td{color:#1D2F34}
+.toolbar{background:white;border-radius:8px;padding:10px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.modal-header{background:#1D2F34;color:white}.modal-header .btn-close{filter:invert(1)}
+.card-panel{background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-sliders me-2"></i>Admin Configurator</h2>
+    <a href="/configurator" class="btn btn-hsl"><i class="bi bi-gear me-1"></i>Deschide Configurator</a>
+</div>
+
+<div class="card-panel">
+<ul class="nav nav-tabs" id="adminTabs">
+<li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-produse">Produse</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-accesorii">Accesorii și Opțiuni</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-cat-acc">Categorii Accesorii</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-cat-prod">Categorii Produse</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-liste-preturi">💰 Liste Prețuri</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-setari">Setări</a></li>
+</ul>
+<div class="tab-content p-3">
+
+<!-- TAB PRODUSE -->
+<div class="tab-pane fade show active" id="tab-produse">
+<div class="toolbar d-flex gap-2 flex-wrap">
+<button class="btn btn-hsl btn-sm" onclick="produse.add()">➕ Adaugă Produs</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="produse.edit()">✏️ Editează</button>
+<button class="btn btn-outline-danger btn-sm" onclick="produse.del()">🗑️ Șterge</button>
+<button class="btn btn-outline-primary btn-sm" onclick="produse.load()">🔄</button>
+<span class="ms-auto text-muted small align-self-center" id="produse-count"></span>
+</div>
+<div class="table-responsive" style="max-height:65vh;overflow-y:auto">
+<table class="table table-sm table-hover mb-0"><thead><tr>
+<th width="40">#</th><th>Cod</th><th>Denumire</th><th>Preț</th><th>UM</th><th>Descriere</th>
+</tr></thead><tbody id="produse-body"></tbody></table></div>
+</div>
+
+<!-- TAB ACCESORII -->
+<div class="tab-pane fade" id="tab-accesorii">
+<div class="toolbar d-flex gap-2 flex-wrap">
+<button class="btn btn-hsl btn-sm" onclick="accesorii.add()">➕ Adaugă Accesoriu/Opțiune</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="accesorii.edit()">✏️ Editează</button>
+<button class="btn btn-outline-danger btn-sm" onclick="accesorii.del()">🗑️ Șterge</button>
+<button class="btn btn-outline-primary btn-sm" onclick="accesorii.load()">🔄</button>
+</div>
+<div class="table-responsive" style="max-height:65vh;overflow-y:auto">
+<table class="table table-sm table-hover mb-0"><thead><tr>
+<th width="40">#</th><th>Cod</th><th>Denumire</th><th>Tip</th><th>Mod Preț</th><th>Preț</th><th>UM</th>
+</tr></thead><tbody id="accesorii-body"></tbody></table></div>
+</div>
+
+<!-- TAB CATEGORII ACCESORII -->
+<div class="tab-pane fade" id="tab-cat-acc">
+<div class="toolbar d-flex gap-2">
+<button class="btn btn-hsl btn-sm" onclick="catAcc.add()">➕ Adaugă</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="catAcc.edit()">✏️ Editează</button>
+<button class="btn btn-outline-danger btn-sm" onclick="catAcc.del()">🗑️ Șterge</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="catAcc.move(-1)">▲</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="catAcc.move(1)">▼</button>
+<button class="btn btn-outline-primary btn-sm" onclick="catAcc.load()">🔄</button>
+</div>
+<div class="table-responsive"><table class="table table-sm table-hover mb-0"><thead><tr>
+<th width="60">Ordine</th><th>Nume</th><th>Descriere</th><th>Nr. Accesorii</th>
+</tr></thead><tbody id="cat-acc-body"></tbody></table></div>
+</div>
+
+<!-- TAB CATEGORII PRODUSE -->
+<div class="tab-pane fade" id="tab-cat-prod">
+<div class="toolbar d-flex gap-2">
+<button class="btn btn-hsl btn-sm" onclick="catProd.add()">➕ Adaugă</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="catProd.edit()">✏️ Editează</button>
+<button class="btn btn-outline-danger btn-sm" onclick="catProd.del()">🗑️ Șterge</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="catProd.move(-1)">▲</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="catProd.move(1)">▼</button>
+<button class="btn btn-outline-primary btn-sm" onclick="catProd.load()">🔄</button>
+</div>
+<div class="table-responsive"><table class="table table-sm table-hover mb-0"><thead><tr>
+<th width="60">Ordine</th><th>Nume</th><th>Descriere</th><th>Nr. Produse</th>
+</tr></thead><tbody id="cat-prod-body"></tbody></table></div>
+</div>
+
+<!-- TAB LISTE PREȚURI -->
+<div class="tab-pane fade" id="tab-liste-preturi">
+<div class="toolbar d-flex gap-2 flex-wrap">
+<button class="btn btn-hsl btn-sm" onclick="listePreturi.add()">➕ Adaugă Șablon</button>
+<button class="btn btn-outline-secondary btn-sm" onclick="listePreturi.edit()">✏️ Editează</button>
+<button class="btn btn-outline-danger btn-sm" onclick="listePreturi.del()">🗑️ Șterge</button>
+<button class="btn btn-outline-primary btn-sm" onclick="listePreturi.load()">🔄</button>
+</div>
+<div class="table-responsive" style="max-height:65vh;overflow-y:auto">
+<table class="table table-sm table-hover mb-0"><thead><tr>
+<th width="40">#</th><th>Nume</th><th>Discount Global</th><th>Reguli</th><th>Clienți</th><th>Descriere</th>
+</tr></thead><tbody id="liste-preturi-body"></tbody></table></div>
+</div>
+
+<!-- TAB SETARI -->
+<div class="tab-pane fade" id="tab-setari">
+<div class="row justify-content-center"><div class="col-md-6 py-3">
+<h5 class="fw-bold" style="color:#1D2F34">Setări Companie</h5>
+<div class="mb-3"><label class="form-label">Nume Companie</label><input id="set-name" class="form-control"></div>
+<div class="mb-3"><label class="form-label">Adresă</label><textarea id="set-addr" class="form-control" rows="2"></textarea></div>
+<div class="mb-3"><label class="form-label">Telefon</label><input id="set-phone" class="form-control"></div>
+<div class="mb-3"><label class="form-label">Email</label><input id="set-email" class="form-control"></div>
+<div class="mb-3"><label class="form-label">TVA (%)</label><input id="set-tva" class="form-control" type="number" value="19"></div>
+<button class="btn btn-hsl" onclick="setari.save()">💾 Salvează Setări</button>
+</div></div>
+</div>
+
+</div></div>
+
+<!-- MODAL GENERIC -->
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title" id="modalTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="modalBody"></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+<button class="btn btn-hsl" id="modalSave">💾 Salvează</button></div>
+</div></div></div>
+
+<!-- MODAL CONFIG -->
+<div class="modal fade" id="configModal" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title" id="configTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="configBody" style="max-height:75vh;overflow-y:auto"></div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API = (url, opts={}) => {
+    opts.headers = {'Content-Type':'application/json', ...opts.headers};
+    if(opts.body && typeof opts.body === 'object') opts.body = JSON.stringify(opts.body);
+    return fetch(url, opts).then(r => r.json());
+};
+
+let modal, configModalEl;
+document.addEventListener('DOMContentLoaded', () => {
+    modal = new bootstrap.Modal('#editModal');
+    configModalEl = new bootstrap.Modal('#configModal');
+    produse.load(); accesorii.load(); catAcc.load(); catProd.load(); setari.load(); listePreturi.load();
+});
+
+// Row selection helper
+function setupTable(tbodyId, dataArr, onSelect) {
+    const tbody = document.getElementById(tbodyId);
+    tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', function() {
+            tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+            this.classList.add('selected');
+            if(onSelect) onSelect(parseInt(this.dataset.idx));
+        });
+    });
+}
+function getSelectedIdx(tbodyId) {
+    const sel = document.querySelector(`#${tbodyId} tr.selected`);
+    return sel ? parseInt(sel.dataset.idx) : -1;
+}
+
+// ═══════════════════════════════════════
+// PRODUSE - exact same as desktop
+// ═══════════════════════════════════════
+const produse = {
+    data: [], sel: -1,
+    async load() {
+        this.data = await API('/api/cfg/produse');
+        const tb = document.getElementById('produse-body');
+        tb.innerHTML = this.data.map((p,i) => `<tr data-idx="${i}">
+            <td>${i+1}</td><td class="fw-bold">${p.cod}</td><td>${p.denumire}</td>
+            <td>${p.pret.toFixed(2)}</td><td>${p.um}</td><td class="text-muted small">${(p.descriere||'').substring(0,80)}</td></tr>`).join('');
+        setupTable('produse-body', this.data, i => this.sel = i);
+        document.getElementById('produse-count').textContent = `${this.data.length} produse`;
+    },
+    add() { this.showDialog(null); },
+    edit() { if(this.sel<0) return alert('Selectează un produs!'); this.showDialog(this.data[this.sel]); },
+    async del() {
+        if(this.sel<0) return alert('Selectează un produs!');
+        if(!confirm('Sigur vrei să ștergi?')) return;
+        await API(`/api/cfg/produse/${this.data[this.sel].id}`, {method:'DELETE'});
+        this.sel=-1; this.load();
+    },
+    async showDialog(p) {
+        const catProduse = await API('/api/cfg/categorii-produse');
+        const isEdit = !!p;
+        document.getElementById('modalTitle').textContent = isEdit ? 'Editează Produs' : 'Adaugă Produs';
+        const existingCats = p ? p.categories : [];
+        document.getElementById('modalBody').innerHTML = `
+            <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Cod Produs</label><input id="p-cod" class="form-control" value="${p?p.cod:''}"></div>
+            <div class="col-md-6 mb-3"><label class="form-label">UM</label><select id="p-um" class="form-select">
+                ${['buc','mp','ml','set'].map(u=>`<option ${p&&p.um===u?'selected':''}>${u}</option>`).join('')}</select></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Denumire</label><input id="p-den" class="form-control" value="${p?p.denumire:''}"></div>
+            <hr>
+            <h6 class="fw-bold" style="color:#1D2F34">💰 Lanț Prețuri (default produs)</h6>
+            <div class="row">
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Furnizor (EUR)</label><input id="p-pf" class="form-control" type="number" step="0.01" value="${p?p.pret_furnizor||0:0}" onchange="produse._calcPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Discount Furnizor (%)</label><input id="p-df" class="form-control" type="number" step="0.01" value="${p?p.discount_furnizor||0:0}" onchange="produse._calcPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Achiziție</label><input id="p-pa" class="form-control" type="number" step="0.01" readonly style="background:#f0f7ec" value="0"></div>
+            </div>
+            <div class="row">
+            <div class="col-md-4 mb-2"><label class="form-label small">Adaos HSL (%)</label><input id="p-adaos" class="form-control" type="number" step="0.01" value="${p?p.adaos_hsl||0:0}" onchange="produse._calcPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Min. Vânzare</label><input id="p-pmv" class="form-control" type="number" step="0.01" readonly style="background:#fff3cd" value="0"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small fw-bold">Preț Listă HSL (EUR)</label><input id="p-pret" class="form-control" type="number" step="0.01" value="${p?p.pret:0}" style="border-color:#61993B;border-width:2px"></div>
+            </div>
+            <small class="text-muted d-block mb-3">Achiziție = Furnizor × (1 - Discount%) · Min. Vânzare = Achiziție × (1 + Adaos%) · Lista HSL = prețul din catalogul HSL</small>
+            <hr>
+            <div class="mb-3"><label class="form-label">Descriere</label><textarea id="p-desc" class="form-control" rows="2">${p?p.descriere||'':''}</textarea></div>
+            <div class="mb-3"><label class="form-label fw-bold">Categorii Produse</label>
+            ${catProduse.length ? catProduse.map(c => `<div class="form-check">
+                <input class="form-check-input p-cat-check" type="checkbox" value="${c.id}" id="pcat${c.id}" ${existingCats.includes(c.id)?'checked':''}>
+                <label class="form-check-label" for="pcat${c.id}">${c.nume}</label></div>`).join('')
+                : '<p class="text-muted">Creează categorii în tab Categorii Produse</p>'}
+            </div>
+            <hr>
+            <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="produse.openConfig(${p?p.id:0})">⚙ Configurează Parametri</button>
+            <button class="btn btn-outline-primary btn-sm" onclick="produse.openVariants(${p?p.id:0})">📋 Gestionează Variante</button>
+            <button class="btn btn-outline-success btn-sm" onclick="produse.openLegaturi(${p?p.id:0})">🔗 Produse Legate</button>
+            </div>`;
+        // Auto-calc on load
+        setTimeout(()=>this._calcPreturi(), 50);
+        document.getElementById('modalSave').onclick = async () => {
+            const cats = [...document.querySelectorAll('.p-cat-check:checked')].map(c=>parseInt(c.value));
+            const data = {cod:document.getElementById('p-cod').value, denumire:document.getElementById('p-den').value,
+                pret:parseFloat(document.getElementById('p-pret').value)||0, um:document.getElementById('p-um').value,
+                descriere:document.getElementById('p-desc').value, categories:cats,
+                pret_furnizor:parseFloat(document.getElementById('p-pf').value)||0,
+                discount_furnizor:parseFloat(document.getElementById('p-df').value)||0,
+                adaos_hsl:parseFloat(document.getElementById('p-adaos').value)||0};
+            if(isEdit) await API(`/api/cfg/produse/${p.id}`,{method:'PUT',body:data});
+            else await API('/api/cfg/produse',{method:'POST',body:data});
+            modal.hide(); this.sel=-1; this.load();
+        };
+        modal.show();
+    },
+    _calcPreturi() {
+        const pf=parseFloat(document.getElementById('p-pf').value)||0;
+        const df=parseFloat(document.getElementById('p-df').value)||0;
+        const adaos=parseFloat(document.getElementById('p-adaos').value)||0;
+        const pa=pf*(1-df/100);
+        const pmv=pa*(1+adaos/100);
+        document.getElementById('p-pa').value=pa.toFixed(2);
+        document.getElementById('p-pmv').value=pmv.toFixed(2);
+    },
+    _calcVarPreturi() {
+        const pfEl=document.getElementById('vr-pf'), dfEl=document.getElementById('vr-df'), adaosEl=document.getElementById('vr-adaos');
+        const pf=pfEl.value!==''?parseFloat(pfEl.value):parseFloat(pfEl.dataset.def||0);
+        const df=dfEl.value!==''?parseFloat(dfEl.value):parseFloat(dfEl.dataset.def||0);
+        const adaos=adaosEl.value!==''?parseFloat(adaosEl.value):parseFloat(adaosEl.dataset.def||0);
+        const pa=pf*(1-df/100);
+        const pmv=pa*(1+adaos/100);
+        document.getElementById('vr-pa').value=pa.toFixed(2);
+        document.getElementById('vr-pmv').value=pmv.toFixed(2);
+    },
+    async openConfig(pid) {
+        if(!pid){alert('Salvează produsul mai întâi!'); return;}
+        modal.hide();
+        const cfg = await API(`/api/cfg/produse/${pid}/config`);
+        const params = cfg.parameter_types || [];
+        document.getElementById('configTitle').textContent = 'Configurare Parametri Produs';
+        let html = `<div class="mb-3">
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-hsl btn-sm" onclick="produse.addParam(${pid})">➕ Adaugă Parametru</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="produse.delParam(${pid})">🗑️ Șterge Selectat</button>
+            </div>
+            <table class="table table-sm table-hover"><thead><tr>
+            <th width="40">Ord</th><th>Nume</th><th>Cheie</th><th>Tip</th><th>Mod</th><th>Valori</th><th width="60">Acțiuni</th>
+            </tr></thead><tbody id="params-body">`;
+        params.forEach((p,i) => {
+            let valDisplay = '';
+            if(p.type==='dropdown'){
+                const vals = p.values||[];
+                valDisplay = vals.map(v => typeof v === 'object' ? v.label : v).join(', ');
+            } else if(p.type==='dimension'){
+                const dims = p.predefined_dimensions||[];
+                valDisplay = dims.map(d => d.value + (d.canate ? ` (${d.canate}C)` : '')).join(', ');
+            }
+            html += `<tr data-idx="${i}" onclick="this.parentElement.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')">
+                <td>${i+1}</td><td>${p.name}</td><td><code>${p.key}</code></td><td>${p.type}</td><td>${p.mode||'fix'}</td>
+                <td class="small text-muted">${valDisplay.substring(0,80)}</td>
+                <td><button class="btn btn-outline-secondary btn-sm py-0" onclick="event.stopPropagation();produse.editParam(${pid},${i})">✏️</button></td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+        document.getElementById('configBody').innerHTML = html;
+        configModalEl.show();
+    },
+    async addParam(pid) { this._showParamDialog(pid, null, -1); },
+    async editParam(pid, idx) {
+        const cfg = await API(`/api/cfg/produse/${pid}/config`);
+        this._showParamDialog(pid, cfg.parameter_types[idx], idx);
+    },
+    async delParam(pid) {
+        const sel = document.querySelector('#params-body tr.selected');
+        if(!sel) return alert('Selectează un parametru!');
+        const idx = parseInt(sel.dataset.idx);
+        const cfg = await API(`/api/cfg/produse/${pid}/config`);
+        cfg.parameter_types.splice(idx, 1);
+        await API(`/api/cfg/produse/${pid}/config`, {method:'PUT', body:cfg});
+        this.openConfig(pid);
+    },
+    _showParamDialog(pid, param, idx) {
+        configModalEl.hide();
+        const isEdit = param !== null;
+        document.getElementById('modalTitle').textContent = isEdit ? 'Editează Parametru' : 'Adaugă Parametru';
+        const p = param || {name:'', key:'', type:'dropdown', mode:'fix', values:[], affects_price:true};
+        
+        let valsStr = '';
+        if(p.type==='dropdown'){
+            valsStr = (p.values||[]).map(v => typeof v==='object' ? v.label : v).join('\n');
+        }
+        let dimsHtml = '';
+        if(p.type==='dimension'){
+            const dims = p.predefined_dimensions||[];
+            dimsHtml = dims.map((d,i) => `${d.value}${d.canate ? ','+d.canate : ''}`).join('\n');
+        }
+        
+        document.getElementById('modalBody').innerHTML = `
+            <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Nume Parametru</label><input id="pm-name" class="form-control" value="${p.name}">
+                <small class="text-muted">Ex: Rezistență la foc, Culoare</small></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Cheie (fără spații)</label><input id="pm-key" class="form-control" value="${p.key}">
+                <small class="text-muted">Ex: rezistenta, culoare</small></div>
+            </div>
+            <div class="row">
+            <div class="col-md-4 mb-3"><label class="form-label">Tip</label><select id="pm-type" class="form-select" onchange="produse._onParamTypeChange()">
+                <option value="dropdown" ${p.type==='dropdown'?'selected':''}>Dropdown</option>
+                <option value="dimension" ${p.type==='dimension'?'selected':''}>Dimensiune</option></select></div>
+            <div class="col-md-4 mb-3" id="pm-mode-wrap"><label class="form-label">Mod</label><select id="pm-mode" class="form-select">
+                <option value="fix" ${p.mode==='fix'?'selected':''}>Fix (doar dropdown)</option>
+                <option value="mixt" ${p.mode==='mixt'?'selected':''}>Mixt (dropdown + custom)</option>
+                <option value="completabil" ${p.mode==='completabil'?'selected':''}>Completabil (doar text liber)</option></select>
+                <small class="text-muted">Fix=doar lista | Mixt=lista+custom | Completabil=manual</small></div>
+            <div class="col-md-4 mb-3"><label class="form-label">&nbsp;</label>
+                <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="pm-affects" ${p.affects_price!==false?'checked':''}>
+                <label class="form-check-label">Influențează prețul</label></div></div>
+            </div>
+            <div id="pm-vals-wrap" class="mb-3"><label class="form-label">Valori posibile (una per linie)</label>
+                <textarea id="pm-vals" class="form-control" rows="6">${valsStr}</textarea>
+                <small class="text-muted">Ex: EI2 60 / EI2 90 / RAL9010</small></div>
+            <div id="pm-dims-wrap" class="mb-3" style="display:${p.type==='dimension'?'block':'none'}">
+                <label class="form-label">Dimensiuni predefinite (lățimexînălțime,canate - una per linie)</label>
+                <textarea id="pm-dims" class="form-control" rows="6">${dimsHtml}</textarea>
+                <small class="text-muted">Format: 900x2100 sau 900x2100,2 (cu canate)</small>
+                <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="pm-has-canate" ${p.has_canate?'checked':''}>
+                <label class="form-check-label">Include Canate</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="pm-custom-dim" ${p.custom_dimensions!==false?'checked':''}>
+                <label class="form-check-label">Permite dimensiuni custom</label></div>
+            </div>`;
+        
+        document.getElementById('modalSave').onclick = async () => {
+            const type = document.getElementById('pm-type').value;
+            const result = {
+                name: document.getElementById('pm-name').value,
+                key: document.getElementById('pm-key').value,
+                type: type,
+                affects_price: document.getElementById('pm-affects').checked,
+            };
+            if(type === 'dropdown'){
+                result.mode = document.getElementById('pm-mode').value;
+                const valsText = document.getElementById('pm-vals').value.trim();
+                result.values = valsText ? valsText.split('\n').map(v=>v.trim()).filter(v=>v) : [];
+            } else {
+                const dimsText = document.getElementById('pm-dims').value.trim();
+                result.has_canate = document.getElementById('pm-has-canate').checked;
+                result.custom_dimensions = document.getElementById('pm-custom-dim').checked;
+                result.predefined_dimensions = dimsText ? dimsText.split('\n').map(line => {
+                    const parts = line.trim().split(',');
+                    const d = {value: parts[0]};
+                    if(parts[1]) d.canate = parts[1].trim();
+                    return d;
+                }).filter(d=>d.value) : [];
+            }
+            const cfg = await API(`/api/cfg/produse/${pid}/config`);
+            const params = cfg.parameter_types || [];
+            if(idx >= 0) params[idx] = result; else params.push(result);
+            await API(`/api/cfg/produse/${pid}/config`, {method:'PUT', body:{parameter_types:params}});
+            modal.hide(); setTimeout(()=>this.openConfig(pid), 300);
+        };
+        this._onParamTypeChange();
+        modal.show();
+    },
+    _onParamTypeChange() {
+        const t = document.getElementById('pm-type').value;
+        document.getElementById('pm-mode-wrap').style.display = t==='dropdown'?'':'none';
+        document.getElementById('pm-vals-wrap').style.display = t==='dropdown'?'':'none';
+        document.getElementById('pm-dims-wrap').style.display = t==='dimension'?'block':'none';
+    },
+    async openVariants(pid) {
+        if(!pid){alert('Salvează produsul mai întâi!'); return;}
+        modal.hide();
+        const vc = await API(`/api/cfg/produse/${pid}/variante`);
+        const cfg = await API(`/api/cfg/produse/${pid}/config`);
+        const params = cfg.parameter_types || [];
+        const varParams = vc.variant_parameters || [];
+        const variants = vc.variants || [];
+        const useVariants = vc.use_variants || false;
+
+        document.getElementById('configTitle').textContent = 'Gestionare Variante de Cod';
+        let html = `<div class="mb-3">
+            <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="vc-use" ${useVariants?'checked':''} onchange="produse._toggleVariants(${pid})">
+            <label class="form-check-label fw-bold">Activează sistem variante</label></div>
+            <div class="mb-2"><strong>Parametri care definesc varianta:</strong><br>`;
+        params.forEach(p => {
+            html += `<div class="form-check form-check-inline">
+                <input class="form-check-input vc-param" type="checkbox" value="${p.key}" ${varParams.includes(p.key)?'checked':''}>
+                <label class="form-check-label">${p.name} (${p.key})</label></div>`;
+        });
+        html += `</div><hr>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-hsl btn-sm" onclick="produse.addVariant(${pid})">➕ Adaugă Variantă</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="produse.delVariant(${pid})">🗑️ Șterge</button>
+                <button class="btn btn-outline-primary btn-sm" onclick="produse.saveVariants(${pid})">💾 Salvează Tot</button>
+                <span class="ms-auto text-muted small align-self-center">${variants.length} variante</span>
+            </div>
+            <div style="max-height:50vh;overflow-y:auto">
+            <table class="table table-sm table-hover"><thead><tr><th>Sufix</th><th>Cod Complet</th>`;
+        varParams.forEach(vp => { const pm = params.find(p=>p.key===vp); html += `<th>${pm?pm.name:vp}</th>`; });
+        html += `<th>Furn.</th><th>Disc.F%</th><th>Achiz.</th><th>Adaos%</th><th>Min.Vânz.</th><th class="text-success">Lista HSL</th><th width="60"></th></tr></thead><tbody id="variants-body">`;
+        
+        const prod = this.data.find(p=>p.id===pid);
+        const codBaza = prod ? prod.cod : '';
+        const defPf=prod?prod.pret_furnizor||0:0, defDf=prod?prod.discount_furnizor||0:0, defAd=prod?prod.adaos_hsl||0:0;
+        variants.forEach((v,i) => {
+            const pf=v.pret_furnizor!==undefined&&v.pret_furnizor!==null?v.pret_furnizor:defPf;
+            const df=v.discount_furnizor!==undefined&&v.discount_furnizor!==null?v.discount_furnizor:defDf;
+            const adaos=v.adaos_hsl!==undefined&&v.adaos_hsl!==null?v.adaos_hsl:defAd;
+            const pa=pf*(1-df/100);
+            const pmv=pa*(1+adaos/100);
+            const isOverride=k=>v[k]!==undefined&&v[k]!==null;
+            const clr=k=>isOverride(k)?'':'color:#aaa';
+            html += `<tr data-idx="${i}" onclick="this.parentElement.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')">
+                <td><code>${v.suffix}</code></td><td class="fw-bold">${codBaza}${v.suffix}</td>`;
+            varParams.forEach(vp => { html += `<td>${v.combination[vp]||''}</td>`; });
+            html += `<td style="${clr('pret_furnizor')}">${pf.toFixed(2)}</td>
+                <td style="${clr('discount_furnizor')}">${df}%</td>
+                <td style="background:#f0f7ec">${pa.toFixed(2)}</td>
+                <td style="${clr('adaos_hsl')}">${adaos}%</td>
+                <td style="background:#fff3cd">${pmv.toFixed(2)}</td>
+                <td class="fw-bold text-success">${(v.pret||0).toFixed(2)}</td>
+                <td><button class="btn btn-outline-secondary btn-sm py-0" onclick="event.stopPropagation();produse.editVariant(${pid},${i})">✏️</button></td></tr>`;
+        });
+        html += `</tbody></table></div></div>`;
+        document.getElementById('configBody').innerHTML = html;
+        configModalEl.show();
+    },
+    async _toggleVariants(pid) {},
+    async addVariant(pid) { this._showVariantDialog(pid, null, -1); },
+    async editVariant(pid, idx) {
+        const vc = await API(`/api/cfg/produse/${pid}/variante`);
+        const variants = vc.variants || [];
+        if(idx >= 0 && idx < variants.length) this._showVariantDialog(pid, variants[idx], idx);
+        else alert('Variantă negăsită!');
+    },
+    async delVariant(pid) {
+        const sel = document.querySelector('#variants-body tr.selected');
+        if(!sel) return alert('Selectează o variantă!');
+        const vc = await API(`/api/cfg/produse/${pid}/variante`);
+        if(!vc.variants) vc.variants = [];
+        vc.variants.splice(parseInt(sel.dataset.idx), 1);
+        await API(`/api/cfg/produse/${pid}/variante`, {method:'PUT', body:vc});
+        this.openVariants(pid);
+    },
+    async _showVariantDialog(pid, variant, idx) {
+        configModalEl.hide();
+        const cfg = await API(`/api/cfg/produse/${pid}/config`);
+        let vc = await API(`/api/cfg/produse/${pid}/variante`);
+        const params = cfg.parameter_types || [];
+        
+        // Ensure vc has all required fields
+        if(!vc.variants) vc.variants = [];
+        if(!vc.variant_parameters) vc.variant_parameters = [];
+        
+        // Read variant_parameters from UI checkboxes first (if panel is open),
+        // then from server, then fallback to ALL params
+        const uiChecked = [...document.querySelectorAll('.vc-param:checked')].map(c=>c.value);
+        let varParams = uiChecked.length ? uiChecked : vc.variant_parameters;
+        if(!varParams.length) varParams = params.map(p=>p.key);
+        
+        // Also save them to server so they persist
+        if(uiChecked.length) {
+            vc.variant_parameters = uiChecked;
+            vc.use_variants = true;
+            await API(`/api/cfg/produse/${pid}/variante`, {method:'PUT', body:vc});
+        }
+        
+        const prod = this.data.find(p=>p.id===pid);
+        const codBaza = prod ? prod.cod : '';
+        const isEdit = variant !== null;
+        const v = variant || {suffix:'.', combination:{}, pret:0};
+        // Get product-level defaults for pricing
+        const prodDefaults = {pf: prod?prod.pret_furnizor||0:0, df: prod?prod.discount_furnizor||0:0, adaos: prod?prod.adaos_hsl||0:0, pret: prod?prod.pret||0:0};
+
+        document.getElementById('modalTitle').textContent = isEdit ? 'Editează Variantă' : 'Adaugă Variantă';
+        let html = `<div class="mb-3"><label class="form-label fw-bold">Sufix Cod</label>
+            <div class="input-group"><span class="input-group-text">${codBaza}</span>
+            <input id="vr-suffix" class="form-control" value="${v.suffix}"></div>
+            <small class="text-muted">Ex: .6010A, .EI60-12X-RAL9010</small></div>
+            <h6 class="fw-bold">Parametri:</h6>`;
+        params.filter(p => varParams.includes(p.key)).forEach(p => {
+            let inputHtml = '';
+            if(p.type === 'dimension'){
+                const dims = p.predefined_dimensions||[];
+                const opts = dims.map(d => `<option ${v.combination[p.key]===d.value?'selected':''}>${d.value}</option>`).join('');
+                inputHtml = `<select id="vr-${p.key}" class="form-select"><option value="">--</option>${opts}</select>`;
+            } else if(p.values && p.values.length){
+                const vals = p.values.map(x => typeof x==='object'?x.label:x);
+                const opts = vals.map(val => `<option ${v.combination[p.key]===val?'selected':''}>${val}</option>`).join('');
+                inputHtml = `<select id="vr-${p.key}" class="form-select"><option value="">--</option>${opts}</select>`;
+            } else {
+                inputHtml = `<input id="vr-${p.key}" class="form-control" value="${v.combination[p.key]||''}">`;
+            }
+            html += `<div class="mb-2"><label class="form-label">${p.name}</label>${inputHtml}</div>`;
+        });
+        html += `<hr><h6 class="fw-bold" style="color:#1D2F34">💰 Prețuri Variantă</h6>
+            <small class="text-muted d-block mb-2">Lăsați gol pentru a moșteni de la produs (Furnizor: ${prodDefaults.pf.toFixed(2)}, Disc: ${prodDefaults.df}%, Adaos: ${prodDefaults.adaos}%)</small>
+            <div class="row">
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Furnizor</label><input id="vr-pf" class="form-control form-control-sm" type="number" step="0.01" value="${v.pret_furnizor!==undefined&&v.pret_furnizor!==null?v.pret_furnizor:''}" placeholder="${prodDefaults.pf.toFixed(2)}" onchange="produse._calcVarPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Discount Furnizor %</label><input id="vr-df" class="form-control form-control-sm" type="number" step="0.01" value="${v.discount_furnizor!==undefined&&v.discount_furnizor!==null?v.discount_furnizor:''}" placeholder="${prodDefaults.df}" onchange="produse._calcVarPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Achiziție</label><input id="vr-pa" class="form-control form-control-sm" readonly style="background:#f0f7ec" value=""></div>
+            </div>
+            <div class="row">
+            <div class="col-md-4 mb-2"><label class="form-label small">Adaos HSL %</label><input id="vr-adaos" class="form-control form-control-sm" type="number" step="0.01" value="${v.adaos_hsl!==undefined&&v.adaos_hsl!==null?v.adaos_hsl:''}" placeholder="${prodDefaults.adaos}" onchange="produse._calcVarPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Min. Vânzare</label><input id="vr-pmv" class="form-control form-control-sm" readonly style="background:#fff3cd" value=""></div>
+            <div class="col-md-4 mb-2"><label class="form-label small fw-bold">Preț Listă HSL</label><input id="vr-pret" class="form-control form-control-sm" type="number" step="0.01" value="${v.pret||''}" style="border-color:#61993B;border-width:2px" placeholder="${prodDefaults.pret.toFixed(2)}"></div>
+            </div>`;
+        
+        document.getElementById('modalBody').innerHTML = html;
+        // Store defaults for calc
+        document.getElementById('vr-pf').dataset.def = prodDefaults.pf;
+        document.getElementById('vr-df').dataset.def = prodDefaults.df;
+        document.getElementById('vr-adaos').dataset.def = prodDefaults.adaos;
+        setTimeout(()=>this._calcVarPreturi(), 50);
+        
+        document.getElementById('modalSave').onclick = async () => {
+            const combo = {};
+            params.filter(p=>varParams.includes(p.key)).forEach(p => {
+                combo[p.key] = document.getElementById(`vr-${p.key}`).value;
+            });
+            const newV = {suffix:document.getElementById('vr-suffix').value, combination:combo,
+                         pret:parseFloat(document.getElementById('vr-pret').value)||0};
+            // Save pricing chain (only if explicitly set)
+            const vpf = document.getElementById('vr-pf').value;
+            const vdf = document.getElementById('vr-df').value;
+            const vadaos = document.getElementById('vr-adaos').value;
+            if(vpf !== '') newV.pret_furnizor = parseFloat(vpf);
+            if(vdf !== '') newV.discount_furnizor = parseFloat(vdf);
+            if(vadaos !== '') newV.adaos_hsl = parseFloat(vadaos);
+            
+            if(idx>=0) vc.variants[idx]=newV; else vc.variants.push(newV);
+            await API(`/api/cfg/produse/${pid}/variante`, {method:'PUT', body:vc});
+            modal.hide(); setTimeout(()=>this.openVariants(pid), 300);
+        };
+        modal.show();
+    },
+    async saveVariants(pid) {
+        const vc = await API(`/api/cfg/produse/${pid}/variante`);
+        vc.use_variants = document.getElementById('vc-use').checked;
+        vc.variant_parameters = [...document.querySelectorAll('.vc-param:checked')].map(c=>c.value);
+        await API(`/api/cfg/produse/${pid}/variante`, {method:'PUT', body:vc});
+        alert('Salvat!');
+    },
+    // ── Produse Legate ──
+    async openLegaturi(pid) {
+        if(!pid){alert('Salvează produsul mai întâi!'); return;}
+        modal.hide();
+        const links = await API(`/api/cfg/produse/${pid}/legaturi`);
+        const prod = this.data.find(p=>p.id===pid);
+        document.getElementById('configTitle').textContent = 'Produse Legate: ' + (prod?prod.cod:'');
+        let html = `<p class="text-muted small">Leagă acest produs de alte produse (ex: ușă ↔ toc). În configurator, când adaugi unul, poți alege și perechea.</p>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-hsl btn-sm" onclick="produse._addLegaturaDialog(${pid})">➕ Adaugă Legătură</button>
+            </div>`;
+        if(!links.length){
+            html += '<p class="text-muted text-center">Nicio legătură definită</p>';
+        } else {
+            html += '<div class="list-group">';
+            links.forEach(lk => {
+                const nc = lk.compatibilitati ? lk.compatibilitati.length : 0;
+                const thisCod = prod ? prod.cod : '?';
+                const isPrincipal = lk.principal === 'this';
+                const isDimSource = lk.dim_source === 'this';
+                const isPriceSource = lk.price_source === 'this';
+                html += `<div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>${lk.produs_cod}</strong> - ${lk.produs_denumire}
+                            <br><small class="text-muted">${nc} compatibilități definite</small>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-outline-primary btn-sm" onclick="produse._editCompat(${pid},${lk.id},${lk.produs_id})">⚙ Compatibilități</button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="produse._delLegatura(${pid},${lk.id})">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="row small">
+                        <div class="col-4">
+                            <label class="fw-bold mb-1">Linie principală în ofertă:</label>
+                            <select class="form-select form-select-sm lk-principal" data-lid="${lk.id}" onchange="produse._saveLinkSettings(${pid},${lk.id})">
+                                <option value="this" ${isPrincipal?'selected':''}>${thisCod} (acest produs)</option>
+                                <option value="other" ${!isPrincipal?'selected':''}>${lk.produs_cod} (produsul legat)</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="fw-bold mb-1">Dimensiunea se preia de la:</label>
+                            <select class="form-select form-select-sm lk-dim" data-lid="${lk.id}" onchange="produse._saveLinkSettings(${pid},${lk.id})">
+                                <option value="this" ${isDimSource?'selected':''}>${thisCod} (acest produs)</option>
+                                <option value="other" ${!isDimSource?'selected':''}>${lk.produs_cod} (produsul legat)</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="fw-bold mb-1">Prețul se preia de la:</label>
+                            <select class="form-select form-select-sm lk-price" data-lid="${lk.id}" onchange="produse._saveLinkSettings(${pid},${lk.id})">
+                                <option value="this" ${isPriceSource?'selected':''}>${thisCod} (acest produs)</option>
+                                <option value="other" ${!isPriceSource?'selected':''}>${lk.produs_cod} (produsul legat)</option>
+                                <option value="both" ${lk.price_source==='both'?'selected':''}>Ambele (prețuri separate)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+        }
+        document.getElementById('configBody').innerHTML = html;
+        configModalEl.show();
+    },
+    async _addLegaturaDialog(pid) {
+        configModalEl.hide();
+        // Show all products except current one
+        const allProds = this.data.filter(p=>p.id!==pid);
+        document.getElementById('modalTitle').textContent = 'Adaugă Produs Legat';
+        let html = `<input id="lk-search" class="form-control mb-2" placeholder="Caută produs..." oninput="produse._filterLkProds()">
+            <div id="lk-list" style="max-height:40vh;overflow-y:auto">`;
+        allProds.forEach(p => {
+            html += `<div class="lk-prod-item product-item" data-id="${p.id}" onclick="produse._selLkProd(this)">${p.cod} - ${p.denumire}</div>`;
+        });
+        html += '</div>';
+        document.getElementById('modalBody').innerHTML = html;
+        document.getElementById('modalSave').onclick = async () => {
+            const sel = document.querySelector('.lk-prod-item.active');
+            if(!sel) return alert('Selectează un produs!');
+            const r = await API(`/api/cfg/produse/${pid}/legaturi`, {method:'POST', body:{produs_id:parseInt(sel.dataset.id)}});
+            if(r.error) return alert(r.error);
+            modal.hide(); setTimeout(()=>this.openLegaturi(pid), 300);
+        };
+        modal.show();
+    },
+    _filterLkProds() {
+        const q = document.getElementById('lk-search').value.toLowerCase();
+        document.querySelectorAll('.lk-prod-item').forEach(el => {
+            el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    },
+    _selLkProd(el) {
+        document.querySelectorAll('.lk-prod-item').forEach(e=>{e.classList.remove('active');e.style.background='';});
+        el.classList.add('active'); el.style.background='#d4edba';
+    },
+    async _delLegatura(pid, lid) {
+        if(!confirm('Ștergi legătura?')) return;
+        await API(`/api/cfg/legaturi/${lid}`, {method:'DELETE'});
+        this.openLegaturi(pid);
+    },
+    async _saveLinkSettings(pid, lid) {
+        const principal = document.querySelector(`.lk-principal[data-lid="${lid}"]`).value;
+        const dim_source = document.querySelector(`.lk-dim[data-lid="${lid}"]`).value;
+        const price_source = document.querySelector(`.lk-price[data-lid="${lid}"]`).value;
+        await API(`/api/cfg/legaturi/${lid}/settings`, {method:'PUT', body:{
+            caller_pid: pid, principal, dim_source, price_source
+        }});
+    },
+    async _editCompat(pid, lid, otherId) {
+        configModalEl.hide();
+        // Load both products' variants
+        const thisP = this.data.find(p=>p.id===pid);
+        const otherP = this.data.find(p=>p.id===otherId);
+        if(!thisP || !otherP){alert(`Produs negăsit! pid=${pid} found=${!!thisP}, otherId=${otherId} found=${!!otherP}`);return;}
+        
+        // Ensure we have variant configs - fetch from API if missing
+        if(!thisP.variante_config || !thisP.variante_config.variants) {
+            try { thisP.variante_config = await API(`/api/cfg/produse/${pid}/variante`); } catch(e){}
+        }
+        if(!otherP.variante_config || !otherP.variante_config.variants) {
+            try { otherP.variante_config = await API(`/api/cfg/produse/${otherId}/variante`); } catch(e){}
+        }
+        
+        const thisVars = (thisP.variante_config||{}).variants||[];
+        const otherVars = (otherP.variante_config||{}).variants||[];
+        console.log('editCompat:', thisP.cod, 'vars:', thisVars.length, '|', otherP.cod, 'vars:', otherVars.length);
+        const lk = await API(`/api/cfg/produse/${pid}/legaturi`);
+        const link = lk.find(l=>l.id===lid);
+        const existing = link ? link.compatibilitati : [];
+
+        document.getElementById('modalTitle').textContent = `Compatibilități: ${thisP.cod} ↔ ${otherP.cod}`;
+        let html = `<p class="text-muted small mb-2">Definește care variante ale celor două produse sunt compatibile.</p>
+            <div id="compat-rows">`;
+
+        existing.forEach((c,i) => {
+            html += this._compatRowHtml(i, thisP, otherP, thisVars, otherVars, c);
+        });
+        html += `</div>
+            <button class="btn btn-outline-primary btn-sm mt-2" onclick="produse._addCompatRow(${pid},${otherId})">➕ Adaugă rând</button>`;
+        document.getElementById('modalBody').innerHTML = html;
+        // Store refs for adding rows
+        this._compatCtx = {pid, otherId, lid, thisP, otherP, thisVars, otherVars};
+        document.getElementById('modalSave').onclick = async () => {
+            const rows = document.querySelectorAll('.compat-row');
+            const compats = [];
+            rows.forEach(row => {
+                const va = row.querySelector('.cr-a').value;
+                const vb = row.querySelector('.cr-b').value;
+                if(va || vb) compats.push({varianta_a: va, varianta_b: vb});
+            });
+            await API(`/api/cfg/legaturi/${lid}/compatibilitati`, {method:'PUT', body:{compatibilitati:compats}});
+            modal.hide(); setTimeout(()=>this.openLegaturi(pid), 300);
+        };
+        modal.show();
+    },
+    _compatRowHtml(idx, thisP, otherP, thisVars, otherVars, val) {
+        val = val || {};
+        let optsA = `<option value="">-- ${thisP.cod} --</option>`;
+        thisVars.forEach(v => {
+            const s = v.suffix||v.code||'';
+            const combo = v.combination||v.params||{};
+            const label = Object.values(combo).filter(x=>x).join(', ');
+            optsA += `<option value="${s}" ${val.varianta_a===s?'selected':''}>${thisP.cod}${s} ${label?'('+label+')':''}</option>`;
+        });
+        let optsB = `<option value="">-- ${otherP.cod} --</option>`;
+        otherVars.forEach(v => {
+            const s = v.suffix||v.code||'';
+            const combo = v.combination||v.params||{};
+            const label = Object.values(combo).filter(x=>x).join(', ');
+            optsB += `<option value="${s}" ${val.varianta_b===s?'selected':''}>${otherP.cod}${s} ${label?'('+label+')':''}</option>`;
+        });
+        return `<div class="compat-row d-flex gap-2 mb-1 align-items-center">
+            <select class="form-select form-select-sm cr-a">${optsA}</select>
+            <span>↔</span>
+            <select class="form-select form-select-sm cr-b">${optsB}</select>
+            <button class="btn btn-outline-danger btn-sm py-0" onclick="this.closest('.compat-row').remove()">✕</button>
+        </div>`;
+    },
+    _addCompatRow(pid, otherId) {
+        const ctx = this._compatCtx;
+        const html = this._compatRowHtml(-1, ctx.thisP, ctx.otherP, ctx.thisVars, ctx.otherVars, {});
+        document.getElementById('compat-rows').insertAdjacentHTML('beforeend', html);
+    }
+};
+
+// ═══════════════════════════════════════
+// ACCESORII
+// ═══════════════════════════════════════
+const accesorii = {
+    data: [], sel: -1,
+    async load() {
+        this.data = await API('/api/cfg/accesorii');
+        const tb = document.getElementById('accesorii-body');
+        tb.innerHTML = this.data.map((a,i) => {
+            let pretDisplay = a.pret_mode==='completabil' ? '[custom]' : (a.pret_mode==='mixt' ? a.pret.toFixed(2)+'~' : a.pret.toFixed(2));
+            return `<tr data-idx="${i}"><td>${i+1}</td><td class="fw-bold">${a.cod}</td><td>${a.denumire}</td>
+            <td>${a.tip}</td><td>${a.pret_mode}</td><td>${pretDisplay}</td><td>${a.um}</td></tr>`;
+        }).join('');
+        setupTable('accesorii-body', this.data, i => this.sel = i);
+    },
+    add() { this.showDialog(null); },
+    edit() { if(this.sel<0) return alert('Selectează!'); this.showDialog(this.data[this.sel]); },
+    async del() {
+        if(this.sel<0) return alert('Selectează!');
+        if(!confirm('Sigur?')) return;
+        await API(`/api/cfg/accesorii/${this.data[this.sel].id}`, {method:'DELETE'});
+        this.sel=-1; this.load();
+    },
+    async showDialog(a) {
+        const allProds = await API('/api/cfg/produse');
+        const catAccList = await API('/api/cfg/categorii-accesorii');
+        const isEdit = !!a;
+        document.getElementById('modalTitle').textContent = isEdit ? 'Editează Accesoriu' : 'Adaugă Accesoriu/Opțiune';
+        // Build compatibility map: produs_id -> status, and variant compat
+        const compatMap = {};
+        const compatVarMap = {};
+        if(a && a.compatibilitati) {
+            a.compatibilitati.forEach(c => {
+                compatMap[c.produs_id] = c.status;
+                compatVarMap[c.produs_id] = c.variante_compat || [];
+            });
+        }
+        
+        let html = `<div class="row">
+            <div class="col-md-4 mb-3"><label class="form-label">Tip</label><select id="a-tip" class="form-select" onchange="accesorii._tipChange()">
+                <option value="accesoriu" ${a&&a.tip==='accesoriu'?'selected':''}>Accesoriu</option>
+                <option value="optiune" ${a&&a.tip==='optiune'?'selected':''}>Opțiune</option></select>
+                <small class="text-muted">Accesoriu=fizic | Opțiune=serviciu</small></div>
+            <div class="col-md-4 mb-3" id="a-cat-wrap"><label class="form-label">Categorie</label>
+                <select id="a-cat" class="form-select"><option value="">--</option>
+                ${catAccList.map(c=>`<option value="${c.id}" ${a&&a.categorie_id===c.id?'selected':''}>${c.nume}</option>`).join('')}</select></div>
+            <div class="col-md-4 mb-3"><label class="form-label">UM</label><select id="a-um" class="form-select">
+                ${['buc','mp','ml','set'].map(u=>`<option ${a&&a.um===u?'selected':''}>${u}</option>`).join('')}</select></div>
+            </div>
+            <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Cod</label><input id="a-cod" class="form-control" value="${a?a.cod:''}"></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Denumire</label><input id="a-den" class="form-control" value="${a?a.denumire:''}"></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Descriere</label><textarea id="a-desc" class="form-control" rows="2">${a?a.descriere||'':''}</textarea></div>
+            <hr>
+            <h6 class="fw-bold">MOD PREȚ</h6>
+            <div class="row">
+            <div class="col-md-4 mb-3"><label class="form-label">Mod Preț</label><select id="a-pmode" class="form-select" onchange="accesorii._pretModeChange()">
+                <option value="fix" ${a&&a.pret_mode==='fix'?'selected':''}>Fix</option>
+                <option value="mixt" ${a&&a.pret_mode==='mixt'?'selected':''}>Mixt</option>
+                <option value="completabil" ${a&&a.pret_mode==='completabil'?'selected':''}>Completabil</option></select></div>
+            </div>
+            <h6 class="fw-bold" style="color:#1D2F34">💰 Lanț Prețuri</h6>
+            <div class="row">
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Furnizor (EUR)</label><input id="a-pf" class="form-control form-control-sm" type="number" step="0.01" value="${a?a.pret_furnizor||0:0}" onchange="accesorii._calcPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Discount Furnizor (%)</label><input id="a-df" class="form-control form-control-sm" type="number" step="0.01" value="${a?a.discount_furnizor||0:0}" onchange="accesorii._calcPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Achiziție</label><input id="a-pa" class="form-control form-control-sm" readonly style="background:#f0f7ec" value="0"></div>
+            </div>
+            <div class="row">
+            <div class="col-md-4 mb-2"><label class="form-label small">Adaos HSL (%)</label><input id="a-adaos" class="form-control form-control-sm" type="number" step="0.01" value="${a?a.adaos_hsl||0:0}" onchange="accesorii._calcPreturi()"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small">Preț Min. Vânzare</label><input id="a-pmv" class="form-control form-control-sm" readonly style="background:#fff3cd" value="0"></div>
+            <div class="col-md-4 mb-2"><label class="form-label small fw-bold">Preț Listă HSL (EUR)</label><input id="a-pret" class="form-control form-control-sm" type="number" step="0.01" value="${a?a.pret:0}" style="border-color:#61993B;border-width:2px"></div>
+            </div>
+            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="a-standalone" ${!a||a.poate_standalone!==false?'checked':''}>
+            <label class="form-check-label">Poate fi vândut standalone</label></div>
+            <hr>
+            <h6 class="fw-bold">COMPATIBILITATE PRODUSE</h6>
+            <p class="text-muted small mb-2">Bifează produsele compatibile. Folosește butonul "Variante" pentru a restricționa la variante specifice.</p>
+            <div style="max-height:250px;overflow-y:auto">`;
+        allProds.forEach(p => {
+            const isCompat = p.id in compatMap;
+            const st = compatMap[p.id] || 'optional';
+            const varCompat = compatVarMap[p.id] || [];
+            const vc = (p.variante_config||{}).variants||[];
+            const hasVars = vc.length > 0;
+            const allVarsSelected = varCompat.length === 0; // empty = all
+            html += `<div class="py-1 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                <input class="form-check-input a-compat-check" type="checkbox" data-pid="${p.id}" ${isCompat?'checked':''}>
+                <span class="flex-grow-1">${p.cod} - ${p.denumire.substring(0,40)}</span>
+                <select class="form-select form-select-sm a-compat-status" data-pid="${p.id}" style="width:120px" ${!isCompat?'disabled':''}>
+                    <option value="standard" ${st==='standard'?'selected':''}>Standard</option>
+                    <option value="optional" ${st==='optional'?'selected':''}>Optional</option></select>
+                ${hasVars?`<button class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size:.7rem" onclick="accesorii._toggleVarCompat(${p.id})" ${!isCompat?'disabled':''} data-pid="${p.id}" data-btn="var">${allVarsSelected?'Toate':''+varCompat.length+' var.'}</button>`:''}
+                </div>
+                ${hasVars?`<div class="acc-var-list ms-4 mt-1" data-pid="${p.id}" style="display:none;max-height:150px;overflow-y:auto;font-size:.8rem">
+                    <label class="d-block"><input type="checkbox" class="a-var-all" data-pid="${p.id}" ${allVarsSelected?'checked':''} onchange="accesorii._varAllToggle(${p.id})"> <em>Toate variantele</em></label>
+                    ${vc.map(v=>{const s=v.suffix||v.code||'';const combo=v.combination||v.params||{};const parts=Object.values(combo).filter(x=>x).join(', ');const checked=allVarsSelected||varCompat.includes(s);return `<label class="d-block"><input type="checkbox" class="a-var-item" data-pid="${p.id}" data-suffix="${s}" ${checked?'checked':''}> ${p.cod}${s} <small class="text-muted">${parts}</small></label>`;}).join('')}
+                </div>`:''}
+            </div>`;
+        });
+        html += `</div><small class="text-muted">Standard = inclus | Optional = contra cost</small>`;
+        
+        document.getElementById('modalBody').innerHTML = html;
+        document.querySelectorAll('.a-compat-check').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const pid = this.dataset.pid;
+                const sel = document.querySelector(`.a-compat-status[data-pid="${pid}"]`);
+                const btn = document.querySelector(`[data-btn="var"][data-pid="${pid}"]`);
+                sel.disabled = !this.checked;
+                if(btn) btn.disabled = !this.checked;
+                if(!this.checked) {
+                    const list = document.querySelector(`.acc-var-list[data-pid="${pid}"]`);
+                    if(list) list.style.display = 'none';
+                }
+            });
+        });
+        
+        document.getElementById('modalSave').onclick = async () => {
+            const compatibilitati = [];
+            document.querySelectorAll('.a-compat-check:checked').forEach(cb => {
+                const pid = cb.dataset.pid;
+                const st = document.querySelector(`.a-compat-status[data-pid="${pid}"]`).value;
+                // Check if "all variants" is checked or specific variants
+                const allCb = document.querySelector(`.a-var-all[data-pid="${pid}"]`);
+                let varCompat = [];
+                if(allCb && !allCb.checked) {
+                    document.querySelectorAll(`.a-var-item[data-pid="${pid}"]:checked`).forEach(v => {
+                        varCompat.push(v.dataset.suffix);
+                    });
+                }
+                compatibilitati.push({produs_id: parseInt(pid), status: st, variante_compat: varCompat});
+            });
+            const data = {cod:document.getElementById('a-cod').value, denumire:document.getElementById('a-den').value,
+                descriere:document.getElementById('a-desc').value, tip:document.getElementById('a-tip').value,
+                pret_mode:document.getElementById('a-pmode').value, pret:parseFloat(document.getElementById('a-pret').value)||0,
+                um:document.getElementById('a-um').value, poate_standalone:document.getElementById('a-standalone').checked,
+                categorie_id:parseInt(document.getElementById('a-cat').value)||null,
+                pret_furnizor:parseFloat(document.getElementById('a-pf').value)||0,
+                discount_furnizor:parseFloat(document.getElementById('a-df').value)||0,
+                adaos_hsl:parseFloat(document.getElementById('a-adaos').value)||0,
+                compatibilitati: compatibilitati};
+            if(isEdit) await API(`/api/cfg/accesorii/${a.id}`,{method:'PUT',body:data});
+            else await API('/api/cfg/accesorii',{method:'POST',body:data});
+            modal.hide(); this.sel=-1; this.load();
+        };
+        this._tipChange(); this._pretModeChange();
+        setTimeout(()=>this._calcPreturi(), 50);
+        modal.show();
+    },
+    _tipChange() {
+        document.getElementById('a-cat-wrap').style.display = document.getElementById('a-tip').value==='accesoriu'?'':'none';
+    },
+    _pretModeChange() {
+        document.getElementById('a-pret').disabled = document.getElementById('a-pmode').value === 'completabil';
+    },
+    _calcPreturi() {
+        const pf=parseFloat(document.getElementById('a-pf').value)||0;
+        const df=parseFloat(document.getElementById('a-df').value)||0;
+        const adaos=parseFloat(document.getElementById('a-adaos').value)||0;
+        const pa=pf*(1-df/100);
+        const pmv=pa*(1+adaos/100);
+        document.getElementById('a-pa').value=pa.toFixed(2);
+        document.getElementById('a-pmv').value=pmv.toFixed(2);
+    },
+    _toggleVarCompat(pid) {
+        const list = document.querySelector(`.acc-var-list[data-pid="${pid}"]`);
+        if(list) list.style.display = list.style.display === 'none' ? '' : 'none';
+    },
+    _varAllToggle(pid) {
+        const allCb = document.querySelector(`.a-var-all[data-pid="${pid}"]`);
+        document.querySelectorAll(`.a-var-item[data-pid="${pid}"]`).forEach(cb => {
+            cb.checked = allCb.checked;
+            cb.disabled = allCb.checked;
+        });
+        const btn = document.querySelector(`[data-btn="var"][data-pid="${pid}"]`);
+        if(btn) btn.textContent = allCb.checked ? 'Toate' : '0 var.';
+    }
+};
+
+// ═══════════════════════════════════════
+// CATEGORII HELPER (shared for acc & prod)
+// ═══════════════════════════════════════
+function makeCatManager(apiUrl, tbodyId, fields) {
+    return {
+        data: [], sel: -1,
+        async load() {
+            this.data = await API(apiUrl);
+            const tb = document.getElementById(tbodyId);
+            tb.innerHTML = this.data.map((c,i) => `<tr data-idx="${i}" onclick="this.parentElement.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')">
+                <td>${c.ordine}</td><td class="fw-bold">${c.nume}</td><td>${c.descriere||''}</td>
+                <td>${c[fields.count]||0}</td></tr>`).join('');
+            this.sel = -1;
+            document.querySelectorAll(`#${tbodyId} tr`).forEach((tr,i) => tr.addEventListener('click', () => this.sel = i));
+        },
+        add() {
+            document.getElementById('modalTitle').textContent = 'Adaugă Categorie';
+            document.getElementById('modalBody').innerHTML = `
+                <div class="mb-3"><label class="form-label">Nume</label><input id="cat-name" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">Descriere</label><textarea id="cat-desc" class="form-control" rows="3"></textarea></div>`;
+            document.getElementById('modalSave').onclick = async () => {
+                await API(apiUrl, {method:'POST', body:{nume:document.getElementById('cat-name').value, descriere:document.getElementById('cat-desc').value}});
+                modal.hide(); this.load();
+            };
+            modal.show();
+        },
+        edit() {
+            if(this.sel<0) return alert('Selectează!');
+            const c = this.data[this.sel];
+            document.getElementById('modalTitle').textContent = 'Editează Categorie';
+            document.getElementById('modalBody').innerHTML = `
+                <div class="mb-3"><label class="form-label">Nume</label><input id="cat-name" class="form-control" value="${c.nume}"></div>
+                <div class="mb-3"><label class="form-label">Descriere</label><textarea id="cat-desc" class="form-control" rows="3">${c.descriere||''}</textarea></div>`;
+            document.getElementById('modalSave').onclick = async () => {
+                await API(`${apiUrl}/${c.id}`, {method:'PUT', body:{nume:document.getElementById('cat-name').value, descriere:document.getElementById('cat-desc').value}});
+                modal.hide(); this.load();
+            };
+            modal.show();
+        },
+        async del() {
+            if(this.sel<0) return alert('Selectează!');
+            if(!confirm('Sigur?')) return;
+            const res = await API(`${apiUrl}/${this.data[this.sel].id}`, {method:'DELETE'});
+            if(!res.success) alert(res.error); 
+            this.sel=-1; this.load();
+        },
+        async move(dir) {
+            if(this.sel<0) return alert('Selectează!');
+            const newIdx = this.sel + dir;
+            if(newIdx < 0 || newIdx >= this.data.length) return;
+            const order = this.data.map((c,i) => ({id:c.id, ordine:i}));
+            [order[this.sel], order[newIdx]] = [order[newIdx], order[this.sel]];
+            order.forEach((o,i) => o.ordine = i);
+            await API(`${apiUrl}/reorder`, {method:'POST', body:{order}});
+            this.sel = newIdx; this.load();
+        }
+    };
+}
+const catAcc = makeCatManager('/api/cfg/categorii-accesorii', 'cat-acc-body', {count:'nr_accesorii'});
+const catProd = makeCatManager('/api/cfg/categorii-produse', 'cat-prod-body', {count:'nr_produse'});
+
+// ═══════════════════════════════════════
+// SETARI
+// ═══════════════════════════════════════
+const setari = {
+    async load() {
+        const s = await API('/api/setari');
+        document.getElementById('set-name').value = s.company_name||'';
+        document.getElementById('set-addr').value = s.company_address||'';
+        document.getElementById('set-phone').value = s.company_phone||'';
+        document.getElementById('set-email').value = s.company_email||'';
+        document.getElementById('set-tva').value = s.tva_rate||'19';
+    },
+    async save() {
+        await API('/api/setari', {method:'PUT', body:{
+            company_name:document.getElementById('set-name').value,
+            company_address:document.getElementById('set-addr').value,
+            company_phone:document.getElementById('set-phone').value,
+            company_email:document.getElementById('set-email').value,
+            tva_rate:document.getElementById('set-tva').value
+        }});
+        alert('Setări salvate!');
+    }
+};
+
+// ═══════════════════════════════════════
+// LISTE PREȚURI (ȘABLOANE)
+// ═══════════════════════════════════════
+const listePreturi = {
+    data: [], sel: -1,
+    async load() {
+        this.data = await API('/api/cfg/liste-preturi');
+        const tb = document.getElementById('liste-preturi-body');
+        tb.innerHTML = this.data.map((s,i) => {
+            const r = s.reguli || {};
+            const nCat = Object.keys(r.categorii||{}).length;
+            const nProd = Object.keys(r.produse||{}).length;
+            const ruleStr = [nCat?nCat+' categ.':'', nProd?nProd+' prod.':''].filter(x=>x).join(', ')||'doar global';
+            return `<tr data-idx="${i}"><td>${i+1}</td><td class="fw-bold">${s.nume}</td>
+            <td>${s.discount_global}%</td><td><small>${ruleStr}</small></td>
+            <td><small>${s.nr_clienti||0} clienți</small></td>
+            <td class="text-muted small">${(s.descriere||'').substring(0,40)}</td></tr>`;
+        }).join('');
+        setupTable('liste-preturi-body', this.data, i => this.sel = i);
+    },
+    add() { this.showDialog(null); },
+    edit() { if(this.sel<0) return alert('Selectează!'); this.showDialog(this.data[this.sel]); },
+    async del() {
+        if(this.sel<0) return alert('Selectează!');
+        if(!confirm('Sigur?')) return;
+        await API(`/api/cfg/liste-preturi/${this.data[this.sel].id}`, {method:'DELETE'});
+        this.sel=-1; this.load();
+    },
+    async showDialog(s) {
+        const allProds = produse.data;
+        const allCats = await API('/api/cfg/categorii-produse');
+        const isEdit = !!s;
+        const reguli = s ? (s.reguli||{}) : {};
+        const catRules = reguli.categorii || {};
+        const prodRules = reguli.produse || {};
+        const varRules = reguli.variante || {}; // {prodId_suffix: discount}
+
+        document.getElementById('modalTitle').textContent = isEdit ? 'Editează Șablon Prețuri' : 'Adaugă Șablon Prețuri';
+        let html = `
+            <div class="row">
+            <div class="col-md-8 mb-3"><label class="form-label">Nume Șablon</label><input id="lp-name" class="form-control" value="${s?s.nume:''}"></div>
+            <div class="col-md-4 mb-3"><label class="form-label">Discount Global (%)</label><input id="lp-dg" class="form-control" type="number" step="0.01" value="${s?s.discount_global:0}"></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Descriere</label><input id="lp-desc" class="form-control" value="${s?s.descriere||'':''}"></div>
+            <hr>
+            <h6 class="fw-bold">Discount per Categorie <small class="text-muted fw-normal">(suprascrie globalul)</small></h6>
+            <div style="max-height:120px;overflow-y:auto" class="mb-3">`;
+        allCats.forEach(c => {
+            const val = catRules[c.id] !== undefined ? catRules[c.id] : '';
+            html += `<div class="d-flex align-items-center gap-2 py-1">
+                <span class="flex-grow-1 small">${c.nume}</span>
+                <input class="form-control form-control-sm lp-cat-disc" data-cid="${c.id}" type="number" step="0.01" style="width:80px" value="${val}" placeholder="—">
+                <span class="small text-muted">%</span></div>`;
+        });
+        html += `</div><hr>
+            <h6 class="fw-bold">Discount per Produs / Variantă <small class="text-muted fw-normal">(suprascrie categoria)</small></h6>
+            <input id="lp-search" class="form-control form-control-sm mb-2" placeholder="🔍 Caută produs sau variantă..." oninput="listePreturi._filterProds()">
+            <div id="lp-prods-list" style="max-height:300px;overflow-y:auto">`;
+        allProds.forEach(p => {
+            const val = prodRules[p.id] !== undefined ? prodRules[p.id] : '';
+            const vc = (p.variante_config||{}).variants||[];
+            const hasVars = vc.length > 0;
+            html += `<div class="lp-prod-row border-bottom py-1" data-search="${(p.cod+' '+p.denumire).toLowerCase()}" data-pid="${p.id}">
+                <div class="d-flex align-items-center gap-2">
+                <span class="flex-grow-1 small">${p.cod} - ${p.denumire.substring(0,35)}</span>
+                ${hasVars?`<span class="badge bg-success rounded-pill lp-var-badge" data-pid="${p.id}" style="font-size:.72rem;cursor:pointer" onclick="listePreturi._toggleVars(${p.id})">${vc.length} variante ▸</span>`:''}
+                <input class="form-control form-control-sm lp-prod-disc" data-pid="${p.id}" type="number" step="0.01" style="width:80px" value="${val}" placeholder="—">
+                <span class="small text-muted">%</span>
+                </div>`;
+            if(hasVars){
+                html += `<div class="lp-var-list" data-pid="${p.id}" style="display:none;border-left:3px solid #61993B;margin-left:8px;background:#fafdf7">`;
+                vc.forEach(v => {
+                    const suffix = v.suffix||'';
+                    const combo = v.combination||{};
+                    const parts = Object.values(combo).filter(x=>x).join(', ');
+                    const varKey = p.id+'_'+suffix;
+                    const varVal = varRules[varKey] !== undefined ? varRules[varKey] : '';
+                    html += `<div class="d-flex align-items-center gap-2 py-1 px-2 lp-var-row" data-search="${(p.cod+suffix+' '+parts).toLowerCase()}" data-varsearch="${(suffix+' '+parts).toLowerCase()}" style="font-size:.85rem;border-bottom:1px solid #f0f0f0">
+                        <code style="color:#1D2F34;font-size:.82rem">${p.cod}${suffix}</code>
+                        <span class="flex-grow-1 small text-muted">${parts}</span>
+                        <input class="form-control form-control-sm lp-var-disc" data-pid="${p.id}" data-suffix="${suffix}" type="number" step="0.01" style="width:80px" value="${varVal}" placeholder="—">
+                        <span class="small text-muted">%</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
+        });
+        html += `</div><small class="text-muted">Prioritate: Variantă > Produs > Categorie > Global. Gol = moștenește de sus.</small>`;
+
+        document.getElementById('modalBody').innerHTML = html;
+        document.getElementById('modalSave').onclick = async () => {
+            const categorii = {}, produse_r = {}, variante_r = {};
+            document.querySelectorAll('.lp-cat-disc').forEach(el => {
+                if(el.value !== '') categorii[el.dataset.cid] = parseFloat(el.value)||0;
+            });
+            document.querySelectorAll('.lp-prod-disc').forEach(el => {
+                if(el.value !== '') produse_r[el.dataset.pid] = parseFloat(el.value)||0;
+            });
+            document.querySelectorAll('.lp-var-disc').forEach(el => {
+                if(el.value !== '') variante_r[el.dataset.pid+'_'+el.dataset.suffix] = parseFloat(el.value)||0;
+            });
+            const data = {
+                nume: document.getElementById('lp-name').value,
+                discount_global: parseFloat(document.getElementById('lp-dg').value)||0,
+                descriere: document.getElementById('lp-desc').value,
+                reguli: {categorii, produse: produse_r, variante: variante_r}
+            };
+            if(isEdit) await API(`/api/cfg/liste-preturi/${s.id}`, {method:'PUT', body:data});
+            else await API('/api/cfg/liste-preturi', {method:'POST', body:data});
+            modal.hide(); this.sel=-1; this.load();
+        };
+        modal.show();
+    },
+    _toggleVars(pid) {
+        const list = document.querySelector(`.lp-var-list[data-pid="${pid}"]`);
+        if(!list) return;
+        const badge = document.querySelector(`.lp-var-badge[data-pid="${pid}"]`);
+        if(list.style.display === 'none'){
+            list.style.display = '';
+            if(badge){ badge.textContent = '▾ ascunde'; badge.classList.remove('bg-success'); badge.classList.add('bg-secondary'); }
+        } else {
+            list.style.display = 'none';
+            const vis = list.querySelectorAll('.lp-var-row:not(.d-none)').length;
+            if(badge){ badge.textContent = vis + ' variante ▸'; badge.classList.add('bg-success'); badge.classList.remove('bg-secondary'); }
+        }
+    },
+    _filterProds() {
+        const q = document.getElementById('lp-search').value.toLowerCase().trim();
+        document.querySelectorAll('.lp-prod-row').forEach(row => {
+            const prodSearch = row.dataset.search || '';
+            const baseMat = !q || prodSearch.includes(q);
+            let matchCount = 0;
+            row.querySelectorAll('.lp-var-row').forEach(vr => {
+                if(!q) { vr.classList.remove('d-none'); matchCount++; return; }
+                const fullCode = (vr.querySelector('code')?.textContent||'').toLowerCase();
+                const params = (vr.querySelector('.text-muted')?.textContent||'').toLowerCase();
+                const suffix = vr.dataset.suffix || '';
+                const matched = fullCode.includes(q) || suffix.toLowerCase().includes(q) || params.includes(q);
+                if(matched){ vr.classList.remove('d-none'); matchCount++; }
+                else { vr.classList.add('d-none'); }
+            });
+            row.style.display = (baseMat || matchCount > 0) ? '' : 'none';
+            const varList = row.querySelector('.lp-var-list');
+            if(varList) varList.style.display = 'none';
+            const badge = row.querySelector('.lp-var-badge');
+            if(badge) {
+                badge.textContent = (q ? matchCount : row.querySelectorAll('.lp-var-row').length) + ' variante ▸';
+                badge.classList.remove('bg-secondary');
+                badge.classList.add('bg-success');
+            }
+        });
+    }
+};
+</script>
+{% endblock %}

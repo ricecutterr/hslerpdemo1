@@ -1,0 +1,58 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Produse Necatalogate - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-question-circle me-2"></i>Produse Necatalogate</h2>
+    <p class="text-muted">Produse intrate prin NIR care nu există în nomenclatorul de produse. Remapează-le la un cod intern real sau adaugă-le în catalog.</p>
+</div>
+
+{% if necatalogate %}
+<div class="bg-white rounded-3 p-3">
+<table class="table table-hover mb-0">
+<thead><tr><th>Cod Temporar</th><th>Denumire</th><th>Cantitate Stoc</th><th>Preț Ach.</th><th>Acțiuni</th></tr></thead>
+<tbody>
+{% for p in necatalogate %}
+<tr id="row-{{ loop.index }}">
+    <td class="fw-bold">{{ p.cod_intern }}</td>
+    <td>{{ p.denumire or '-' }}</td>
+    <td>{{ p.cantitate_totala }}</td>
+    <td>{{ '{:,.2f}'.format(p.pret or 0) }}€</td>
+    <td>
+        <div class="d-flex gap-1 align-items-center">
+            <select class="form-select form-select-sm" style="width:200px" id="remap-{{ loop.index }}">
+                <option value="">-- Selectează cod real --</option>
+                {% for pc in produse_catalog %}
+                <option value="{{ pc.cod }}">{{ pc.cod }} — {{ pc.denumire }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-hsl" onclick="remap('{{ p.cod_intern }}', {{ loop.index }})">
+                <i class="bi bi-arrow-right me-1"></i>Remapează
+            </button>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+</tbody></table>
+</div>
+{% else %}
+<div class="bg-white rounded-3 p-4 text-center">
+    <i class="bi bi-check-circle text-success fs-1"></i>
+    <p class="mt-2 text-muted">Toate produsele din stoc sunt catalogate.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script>
+function remap(codVechi, idx){
+    const sel = document.getElementById('remap-'+idx);
+    const codNou = sel.value;
+    if(!codNou) return alert('Selectează un cod intern real!');
+    if(!confirm(`Remapează "${codVechi}" → "${codNou}"?\n\nSe vor actualiza: stocul, NIR-urile, mișcările, mapările.`)) return;
+    fetch('/api/wms/remap-cod',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cod_vechi:codVechi, cod_nou:codNou})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){alert('Remapat cu succes!');location.reload();}
+        else alert(d.error);
+    });
+}
+</script>{% endblock %}

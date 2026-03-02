@@ -1,0 +1,85 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Alerte Stoc - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-exclamation-triangle me-2"></i>Alerte Stoc Minim</h2>
+</div>
+
+<!-- Add new threshold -->
+<div class="bg-white rounded-3 p-3 mb-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-2"></i>Adaugă Prag Minim</h6>
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label small">Produs</label>
+            <select id="newCod" class="form-select" onchange="fillDen()">
+                <option value="">-- Selectează --</option>
+                {% for p in produse %}<option value="{{ p.cod }}" data-den="{{ p.den }}">{{ p.cod }} — {{ p.den }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Denumire</label>
+            <input id="newDen" class="form-control" readonly>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Prag Minim</label>
+            <input id="newPrag" type="number" min="0" class="form-control" value="5">
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-hsl w-100" onclick="addPrag()"><i class="bi bi-plus-lg me-1"></i>Adaugă</button>
+        </div>
+    </div>
+</div>
+
+<!-- Current thresholds -->
+<div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold mb-3">Praguri Configurate</h6>
+    {% if praguri %}
+    <table class="table table-hsl mb-0">
+    <thead><tr><th>Cod Produs</th><th>Denumire</th><th>Prag Minim</th><th>Stoc Actual</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for p in praguri %}
+    <tr class="{% if p.sub_prag %}table-danger{% endif %}">
+        <td><code class="fw-bold">{{ p.cod_intern }}</code></td>
+        <td>{{ p.denumire or '-' }}</td>
+        <td><strong>{{ p.prag_minim|int }}</strong></td>
+        <td>
+            <strong class="{% if p.sub_prag %}text-danger{% else %}text-success{% endif %}">{{ p.stoc_actual|int }}</strong>
+        </td>
+        <td>
+            {% if p.sub_prag %}
+            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Sub prag (lipsă {{ (p.prag_minim - p.stoc_actual)|int }})</span>
+            {% else %}
+            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>OK</span>
+            {% endif %}
+        </td>
+        <td><button class="btn btn-outline-danger btn-sm py-0" onclick="delPrag({{ p.id }})">🗑️</button></td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}
+    <p class="text-muted text-center py-3">Niciun prag configurat. Adaugă produse pentru monitorizare.</p>
+    {% endif %}
+</div>
+
+<script>
+function fillDen(){
+    const sel = document.getElementById('newCod');
+    const opt = sel.options[sel.selectedIndex];
+    document.getElementById('newDen').value = opt?.dataset.den || '';
+}
+function addPrag(){
+    const cod = document.getElementById('newCod').value;
+    const den = document.getElementById('newDen').value;
+    const prag = document.getElementById('newPrag').value;
+    if(!cod) return alert('Selectează un produs');
+    fetch('/api/wms/stoc-minim',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cod_intern:cod,denumire:den,prag_minim:parseFloat(prag)})
+    }).then(r=>r.json()).then(d=>{if(d.success)location.reload();else alert(d.error)});
+}
+function delPrag(id){
+    if(!confirm('Ștergi pragul?')) return;
+    fetch('/api/wms/stoc-minim/'+id+'/delete',{method:'POST',headers:{'Content-Type':'application/json'}})
+    .then(r=>r.json()).then(d=>{if(d.success)location.reload();else alert(d.error)});
+}
+</script>
+{% endblock %}

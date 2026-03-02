@@ -1,0 +1,62 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Editare' if client else 'Client Nou' }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header"><h2>{{ 'Editare Client' if client else 'Client Nou' }}</h2></div>
+<div class="bg-white rounded-3 p-4" style="max-width:800px">
+<form method="POST">
+    <div class="row g-3">
+    <div class="col-md-4"><label class="form-label fw-bold">CUI</label>
+        <div class="input-group"><input type="text" name="cui" class="form-control" id="cui" value="{{ client.cui if client else '' }}">
+        <button type="button" class="btn btn-outline-success" onclick="lookupANAF()">🔍 ANAF</button></div></div>
+    <div class="col-md-5"><label class="form-label fw-bold">Nume *</label><input type="text" name="nume" class="form-control" id="nume" value="{{ client.nume if client else '' }}" required></div>
+    <div class="col-md-3"><label class="form-label fw-bold">Tip</label><select name="tip" class="form-select">
+        <option value="companie" {{ 'selected' if not client or client.tip=='companie' }}>Companie</option>
+        <option value="persoana_fizica" {{ 'selected' if client and client.tip=='persoana_fizica' }}>Persoană Fizică</option></select></div>
+    <div class="col-md-4"><label class="form-label">Nr. Reg. Com.</label><input type="text" name="nr_reg_com" class="form-control" id="nr_reg_com" value="{{ client.nr_reg_com if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ client.email if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Telefon</label><input type="text" name="telefon" class="form-control" id="telefon" value="{{ client.telefon if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Telefon Secundar</label><input type="text" name="telefon_secundar" class="form-control" value="{{ client.telefon_secundar if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Persoană Contact</label><input type="text" name="persoana_contact" class="form-control" value="{{ client.persoana_contact if client else '' }}"></div>
+    <div class="col-12"><label class="form-label">Adresă</label><input type="text" name="adresa" class="form-control" id="adresa" value="{{ client.adresa if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Oraș</label><input type="text" name="oras" class="form-control" id="oras" value="{{ client.oras if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Județ</label><input type="text" name="judet" class="form-control" id="judet" value="{{ client.judet if client else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Cod Poștal</label><input type="text" name="cod_postal" class="form-control" id="cod_postal" value="{{ client.cod_postal if client else '' }}"></div>
+    <div class="col-md-6"><label class="form-label">Bancă</label><input type="text" name="banca" class="form-control" value="{{ client.banca if client else '' }}"></div>
+    <div class="col-md-6"><label class="form-label">IBAN</label><input type="text" name="iban" class="form-control" value="{{ client.iban if client else '' }}"></div>
+    <div class="col-md-6"><label class="form-label">💰 Listă Prețuri</label>
+        <select name="sablon_pret_id" class="form-select">
+            <option value="">— Prețuri standard (listă HSL) —</option>
+            {% for s in sabloane_preturi %}
+            <option value="{{ s.id }}" {{ 'selected' if client and client.sablon_pret_id == s.id }}>{{ s.nume }} ({{ s.discount_global }}% global)</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-6"><label class="form-label">Observații</label><textarea name="observatii" class="form-control" rows="2">{{ client.observatii if client else '' }}</textarea></div>
+    {% if client %}<div class="col-12"><div class="form-check"><input type="checkbox" name="activ" class="form-check-input" {{ 'checked' if client.activ }}><label class="form-check-label">Activ</label></div></div>{% endif %}
+    </div>
+    <div class="mt-4"><button class="btn btn-hsl me-2"><i class="bi bi-check-lg me-1"></i>Salvează</button>
+    <a href="/admin/clienti" class="btn btn-outline-secondary">Anulează</a></div>
+</form></div>
+<div id="anaf-status" class="mt-2"></div>
+{% endblock %}
+{% block scripts %}<script>
+function lookupANAF(){
+    const cui=document.getElementById('cui').value.trim();
+    if(!cui){alert('Introdu CUI!');return;}
+    document.getElementById('anaf-status').innerHTML='<div class="alert alert-info py-1">Se caută...</div>';
+    fetch('/api/anaf/lookup/'+cui).then(r=>r.json()).then(d=>{
+        if(d.success){
+            document.getElementById('nume').value=d.denumire||'';
+            document.getElementById('adresa').value=d.adresa||'';
+            document.getElementById('nr_reg_com').value=d.nr_reg_com||'';
+            document.getElementById('telefon').value=d.telefon||'';
+            document.getElementById('oras').value=d.oras||'';
+            document.getElementById('judet').value=d.judet||'';
+            document.getElementById('cod_postal').value=d.cod_postal||'';
+            document.getElementById('anaf-status').innerHTML='<div class="alert alert-success py-1">✓ Date completate din ANAF</div>';
+        } else {
+            document.getElementById('anaf-status').innerHTML='<div class="alert alert-danger py-1">'+d.error+'</div>';
+        }
+    }).catch(e=>document.getElementById('anaf-status').innerHTML='<div class="alert alert-danger py-1">Eroare: '+e+'</div>');
+}
+</script>{% endblock %}

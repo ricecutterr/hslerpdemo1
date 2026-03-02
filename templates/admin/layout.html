@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/static/img/logo.png">
+<link rel="preload" as="image" href="/static/img/logo.png">
+<title>{% block title %}HSL ERP{% endblock %}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+<link href="/static/css/hsl.css" rel="stylesheet">
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="d-flex">
+<!-- SIDEBAR -->
+<nav class="sidebar d-flex flex-column flex-shrink-0 p-3">
+    <a href="/admin" class="d-flex justify-content-center align-items-center text-white text-decoration-none" style="margin:-8px 0 4px 0;min-height:100px">
+        <img src="data:image/png;base64,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" alt="HSL Solutions" style="height:100px;width:auto">
+    </a>
+    <ul class="nav nav-pills flex-column mb-auto">
+        {# ── GENERAL ── #}
+        {% if current_user.has_access('dashboard') %}
+        <li class="nav-item">
+            <a class="nav-link {% if request.path == '/admin' %}active{% endif %}" href="/admin">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </a>
+        </li>
+        {% endif %}
+        {% if current_user.has_access('chat') %}
+        <li class="nav-item">
+            <a class="nav-link {% if '/chat' in request.path %}active{% endif %}" href="/admin/chat">
+                <i class="bi bi-chat-dots me-2"></i>Chat
+                <span id="chatBadgeSidebar" class="badge bg-danger ms-auto" style="display:none;font-size:.6rem"></span>
+            </a>
+        </li>
+        {% endif %}
+        {% if current_user.has_access('mail') %}
+        <li class="nav-item">
+            <a class="nav-link {% if '/mail' in request.path %}active{% endif %}" href="/admin/mail">
+                <i class="bi bi-envelope me-2"></i>Mail
+                <span id="mailBadgeSidebar" class="badge bg-danger ms-auto" style="display:none;font-size:.6rem"></span>
+            </a>
+        </li>
+        {% endif %}
+
+        {# ── CRM ── #}
+        {% if current_user.has_access('crm') %}
+        <li class="nav-section">CRM</li>
+        <li><a class="nav-link {% if '/clienti' in request.path %}active{% endif %}" href="/admin/clienti">
+            <i class="bi bi-people me-2"></i>Clienți
+        </a></li>
+        {% endif %}
+
+        {# ── CATALOG ── #}
+        {% if current_user.has_access('nomenclator') %}
+        <li class="nav-section">CATALOG</li>
+        <li><a class="nav-link {% if '/nomenclator' in request.path %}active{% endif %}" href="/admin/nomenclator">
+            <i class="bi bi-box me-2"></i>Nomenclator
+        </a></li>
+        {% endif %}
+
+        {# ── VÂNZĂRI ── #}
+        {% if current_user.has_access('oferte') or current_user.has_access('configurator') or current_user.has_access('comenzi') or current_user.has_access('activitati') %}
+        <li class="nav-section">VÂNZĂRI</li>
+        {% endif %}
+        {% if current_user.has_access('oferte') %}
+        <li><a class="nav-link {% if '/oferte' in request.path %}active{% endif %}" href="/admin/oferte">
+            <i class="bi bi-file-earmark-text me-2"></i>Oferte
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('configurator') %}
+        <li><a class="nav-link text-success fw-bold {% if request.path == '/configurator' %}active{% endif %}" href="/configurator">
+            <i class="bi bi-gear me-2"></i>Configurator
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('comenzi') %}
+        <li><a class="nav-link {% if '/comenzi' in request.path %}active{% endif %}" href="/admin/comenzi">
+            <i class="bi bi-cart-check me-2"></i>Comenzi
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('activitati') %}
+        <li><a class="nav-link {% if '/activitati' in request.path %}active{% endif %}" href="/admin/activitati">
+            <i class="bi bi-kanban me-2"></i>Activități
+        </a></li>
+        {% endif %}
+
+        {# ── FINANCIAR ── #}
+        {% if current_user.has_access('facturi') or current_user.has_access('incasari') or current_user.has_access('raport_marja') %}
+        <li class="nav-section">FINANCIAR</li>
+        {% endif %}
+        {% if current_user.has_access('facturi') %}
+        <li><a class="nav-link {% if '/facturi' in request.path %}active{% endif %}" href="/admin/facturi">
+            <i class="bi bi-receipt me-2"></i>Facturi
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('incasari') %}
+        <li><a class="nav-link {% if '/incasari' in request.path %}active{% endif %}" href="/admin/incasari">
+            <i class="bi bi-bank me-2"></i>Încasări
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('raport_marja') %}
+        <li><a class="nav-link {% if '/raport-marja' in request.path %}active{% endif %}" href="/admin/raport-marja">
+            <i class="bi bi-graph-up-arrow me-2"></i>Raport Marjă
+        </a></li>
+        {% endif %}
+
+        {# ── LOGISTICĂ ── #}
+        {% if current_user.has_access('wms') %}
+        <li class="nav-section">LOGISTICĂ</li>
+        <li><a class="nav-link {% if request.path == '/admin/wms' %}active{% endif %}" href="/admin/wms">
+            <i class="bi bi-box-seam me-2"></i>WMS Dashboard
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_niruri') %}
+        <li><a class="nav-link {% if '/wms/niruri' in request.path or '/wms/nir' in request.path %}active{% endif %}" href="/admin/wms/niruri">
+            <i class="bi bi-clipboard-check me-2"></i>NIR-uri
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_furnizori') %}
+        <li><a class="nav-link {% if '/wms/furnizori' in request.path %}active{% endif %}" href="/admin/wms/furnizori">
+            <i class="bi bi-truck me-2"></i>Furnizori
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_celule') %}
+        <li><a class="nav-link {% if '/wms/celule' in request.path %}active{% endif %}" href="/admin/wms/celule">
+            <i class="bi bi-grid-3x3 me-2"></i>Celule Depozit
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_necatalogate') %}
+        <li><a class="nav-link {% if '/wms/necatalogate' in request.path %}active{% endif %}" href="/admin/wms/necatalogate">
+            <i class="bi bi-question-circle me-2"></i>Necatalogate
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_picking') %}
+        <li><a class="nav-link {% if '/wms/picking' in request.path %}active{% endif %}" href="/admin/wms/pickings">
+            <i class="bi bi-cart-check me-2"></i>Picking-uri
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_note_livrare') %}
+        <li><a class="nav-link {% if '/wms/note-livrare' in request.path or '/wms/nota-livrare' in request.path %}active{% endif %}" href="/admin/wms/note-livrare">
+            <i class="bi bi-truck me-2"></i>Note Livrare
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_transfer') %}
+        <li><a class="nav-link {% if '/wms/transfer' in request.path %}active{% endif %}" href="/admin/wms/transfer">
+            <i class="bi bi-arrow-left-right me-2"></i>Transfer Celule
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('wms_alerte') %}
+        <li><a class="nav-link {% if '/wms/alerte-stoc' in request.path %}active{% endif %}" href="/admin/wms/alerte-stoc">
+            <i class="bi bi-exclamation-triangle me-2"></i>Alerte Stoc
+        </a></li>
+        {% endif %}
+
+        {# ── ADMIN ── #}
+        {% if current_user.has_access('cfg_admin') or current_user.has_access('utilizatori') %}
+        <li class="nav-section">ADMIN</li>
+        {% endif %}
+        {% if current_user.has_access('cfg_admin') %}
+        <li><a class="nav-link {% if 'configurator/admin' in request.path %}active{% endif %}" href="/configurator/admin">
+            <i class="bi bi-sliders me-2"></i>Admin Configurator
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('utilizatori') %}
+        <li><a class="nav-link {% if '/utilizatori' in request.path %}active{% endif %}" href="/admin/utilizatori">
+            <i class="bi bi-person-gear me-2"></i>Utilizatori
+        </a></li>
+        <li><a class="nav-link {% if '/roluri' in request.path %}active{% endif %}" href="/admin/roluri">
+            <i class="bi bi-shield-lock me-2"></i>Roluri
+        </a></li>
+        {% endif %}
+        {% if current_user.has_access('audit_log') %}
+        <li><a class="nav-link {% if '/audit-log' in request.path %}active{% endif %}" href="/admin/audit-log">
+            <i class="bi bi-clock-history me-2"></i>Audit Log
+        </a></li>
+        {% endif %}
+    </ul>
+    <hr class="text-white-50">
+    <div class="dropdown">
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle"
+           data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle me-2"></i>{{ current_user.nume_complet }}
+            <span class="badge bg-{% if current_user.is_admin %}danger{% else %}info{% endif %} ms-2" style="font-size:.65rem">{{ current_user.rol_nume }}</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-dark">
+            <li><span class="dropdown-item-text text-muted small">{{ current_user.username }} · {{ current_user.rol_nume }}</span></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/logout"><i class="bi bi-box-arrow-right me-2"></i>Deconectare</a></li>
+        </ul>
+    </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="flex-grow-1 p-4" style="min-height:100vh;overflow-y:auto;">
+    <!-- Global search + notifications bar -->
+    <div class="d-flex align-items-center gap-3 mb-2" style="justify-content:flex-end">
+        <!-- Notifications bell -->
+        <div class="position-relative">
+            <button id="bellBtn" class="btn btn-light btn-sm position-relative" onclick="toggleNotifs()" style="border:none;background:transparent">
+                <i class="bi bi-bell fs-5 text-muted"></i>
+                <span id="bellBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;font-size:.6rem">0</span>
+            </button>
+            <div id="notifsPanel" class="position-absolute bg-white shadow-lg rounded-3 border p-0" style="z-index:1060;width:340px;right:0;top:38px;max-height:400px;overflow-y:auto;display:none">
+                <div class="p-2 border-bottom fw-bold small" style="background:#f8f9fa"><i class="bi bi-bell me-1"></i>Notificări</div>
+                <div id="notifsList"></div>
+            </div>
+        </div>
+        <!-- Search bar -->
+        <div class="position-relative" style="width:400px">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input id="globalSearch" type="text" class="form-control border-start-0" placeholder="Caută clienți, oferte, comenzi, produse..." autocomplete="off" style="box-shadow:none">
+                <kbd class="d-flex align-items-center px-2 bg-light text-muted border" style="font-size:.65rem;border-radius:0 4px 4px 0">/</kbd>
+            </div>
+            <div id="searchResults" class="position-absolute w-100 bg-white shadow-lg rounded-3 border mt-1 p-0" style="z-index:1050;max-height:400px;overflow-y:auto;display:none"></div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for cat, msg in messages %}
+    <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show" role="alert">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Notifications
+function toggleNotifs(){const p=document.getElementById('notifsPanel');p.style.display=p.style.display==='none'?'':'none';if(p.style.display!=='none')loadNotifs();}
+function loadNotifs(){
+    fetch('/api/notifications').then(r=>r.json()).then(d=>{
+        const badge=document.getElementById('bellBadge');
+        const list=document.getElementById('notifsList');
+        badge.textContent=d.count;badge.style.display=d.count>0?'':'none';
+        if(!d.notifications.length){list.innerHTML='<div class="p-3 text-muted text-center small">Nicio notificare</div>';return;}
+        list.innerHTML=d.notifications.map(n=>`<a href="${n.url}" class="d-flex align-items-start gap-2 px-3 py-2 text-decoration-none text-dark border-bottom" style="transition:background .15s" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
+            <i class="bi ${n.icon} text-${n.type} mt-1"></i>
+            <div class="flex-grow-1"><div class="small">${n.text}</div>${n.time?'<div class="text-muted" style="font-size:.65rem">'+n.time+'</div>':''}</div>
+        </a>`).join('');
+    });
+}
+// Auto-load badge count on page load
+setTimeout(()=>{fetch('/api/notifications').then(r=>r.json()).then(d=>{
+    const b=document.getElementById('bellBadge');if(b){b.textContent=d.count;b.style.display=d.count>0?'':'none';}
+});},500);
+// Chat unread badge
+function updateChatBadge(){fetch('/api/chat/necitite').then(r=>r.json()).then(d=>{
+    const sb=document.getElementById('chatBadgeSidebar');
+    if(sb){sb.textContent=d.total;sb.style.display=d.total>0?'':'none';}
+});}
+updateChatBadge(); setInterval(updateChatBadge, 15000);
+// Close on click outside
+document.addEventListener('click',e=>{const p=document.getElementById('notifsPanel'),b=document.getElementById('bellBtn');if(p&&b&&!p.contains(e.target)&&!b.contains(e.target))p.style.display='none';});
+
+// Global search
+(function(){
+    const inp = document.getElementById('globalSearch');
+    const res = document.getElementById('searchResults');
+    if(!inp) return;
+    let timer = null;
+    inp.addEventListener('input', ()=>{
+        clearTimeout(timer);
+        const q = inp.value.trim();
+        if(q.length < 2){res.style.display='none';return;}
+        timer = setTimeout(()=>{
+            fetch('/api/search?q='+encodeURIComponent(q)).then(r=>r.json()).then(d=>{
+                if(!d.results||!d.results.length){res.innerHTML='<div class="p-3 text-muted text-center small">Niciun rezultat</div>';res.style.display='';return;}
+                let html='';
+                const icons={client:'bi-people text-primary',oferta:'bi-file-text text-warning',comanda:'bi-cart text-success',produs:'bi-box text-info',nir:'bi-clipboard-data text-secondary',factura:'bi-receipt text-danger'};
+                d.results.forEach(r=>{
+                    html+=`<a href="${r.url}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none text-dark border-bottom search-item" style="transition:background .15s" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
+                        <i class="bi ${icons[r.type]||'bi-search'} fs-5"></i>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <div class="fw-bold small text-truncate">${r.title}</div>
+                            <div class="text-muted" style="font-size:.7rem">${r.subtitle||''}</div>
+                        </div>
+                        <span class="badge bg-light text-muted" style="font-size:.6rem">${r.type}</span>
+                    </a>`;
+                });
+                res.innerHTML=html; res.style.display='';
+            });
+        }, 300);
+    });
+    // Close on click outside
+    document.addEventListener('click',e=>{if(!inp.contains(e.target)&&!res.contains(e.target))res.style.display='none';});
+    // Keyboard shortcut: / to focus
+    document.addEventListener('keydown',e=>{
+        if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();inp.focus();inp.select();}
+        if(e.key==='Escape'){inp.blur();res.style.display='none';}
+    });
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,157 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ act.titlu }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-kanban me-2"></i>{{ act.titlu }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            <span class="badge bg-{% if act.status=='de_facut' %}secondary{% elif act.status=='in_lucru' %}primary{% elif act.status=='in_asteptare' %}warning text-dark{% elif act.status=='finalizat' %}success{% else %}danger{% endif %} fs-6">
+                {{ act.status_display }}
+            </span>
+            <span class="badge bg-{% if act.prioritate=='urgenta' %}danger{% elif act.prioritate=='ridicata' %}warning text-dark{% elif act.prioritate=='normala' %}info{% else %}light text-dark{% endif %} fs-6">
+                {{ act.prioritate_display }}
+            </span>
+            <span class="badge" style="background:{{ act.tip_culoare }};color:#fff;font-size:.9rem">{{ act.tip_display }}</span>
+            {% if act.is_overdue %}<span class="badge bg-danger fs-6"><i class="bi bi-exclamation-triangle me-1"></i>Depășit termen!</span>{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        {% if current_user.has_access('activitati_manage') %}
+        <a href="/admin/activitati/{{ act.id }}/edit" class="btn btn-outline-primary"><i class="bi bi-pencil me-1"></i>Editează</a>
+        {% endif %}
+        {% if current_user.has_access('activitati_status') or current_user.has_access('activitati_manage') %}
+        {% if act.status == 'de_facut' %}
+        <button class="btn btn-primary" onclick="setStatus('in_lucru')"><i class="bi bi-play-fill me-1"></i>Începe</button>
+        {% elif act.status == 'in_lucru' %}
+        <button class="btn btn-warning" onclick="setStatus('in_asteptare')"><i class="bi bi-pause-fill me-1"></i>Pauzează</button>
+        <button class="btn btn-success" onclick="setStatus('finalizat')"><i class="bi bi-check-lg me-1"></i>Finalizează</button>
+        {% elif act.status == 'in_asteptare' %}
+        <button class="btn btn-primary" onclick="setStatus('in_lucru')"><i class="bi bi-play-fill me-1"></i>Reia</button>
+        {% endif %}
+        {% endif %}
+        {% if current_user.has_access('activitati_manage') and act.status not in ('finalizat','anulat') %}
+        <button class="btn btn-outline-danger" onclick="setStatus('anulat')">Anulează</button>
+        {% endif %}
+        {% if current_user.has_access('activitati_manage') %}
+        <button class="btn btn-outline-danger" onclick="stergeActivitate()"><i class="bi bi-trash me-1"></i>Șterge</button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+<!-- Info panel -->
+<div class="col-md-4">
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">Detalii</h6>
+        <p><strong>Asignat:</strong>
+            {% if current_user.has_access('activitati_manage') %}
+            <select id="assignSelect" class="form-select form-select-sm d-inline-block" style="width:auto" onchange="assignTo(this.value)">
+                <option value="">-- Neasignat --</option>
+                {% for u in utilizatori %}
+                <option value="{{ u.id }}" {{ 'selected' if act.asignat_id==u.id }}>{{ u.nume_complet }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            {{ act.asignat.nume_complet if act.asignat else 'Neasignat' }}
+            {% endif %}
+        </p>
+        {% if act.comanda %}
+        <p><strong>Comandă:</strong> <a href="/admin/comenzi/{{ act.comanda_id }}">{{ act.comanda.numar }}</a></p>
+        {% endif %}
+        {% if act.client %}
+        <p><strong>Client:</strong> <a href="/admin/clienti/{{ act.client_id }}/detalii">{{ act.client.nume }}</a></p>
+        {% endif %}
+        <p><strong>Creat de:</strong> {{ act.creat_de.nume_complet if act.creat_de else '-' }}<br>
+           <strong>Data:</strong> {{ act.data_creare.strftime('%d.%m.%Y %H:%M') }}</p>
+        {% if act.deadline %}<p><strong>Deadline:</strong> <span class="{% if act.is_overdue %}text-danger fw-bold{% endif %}">{{ act.deadline.strftime('%d.%m.%Y') }}</span></p>{% endif %}
+        {% if act.data_start %}<p><strong>Început:</strong> {{ act.data_start.strftime('%d.%m.%Y %H:%M') }}</p>{% endif %}
+        {% if act.data_finalizare %}<p><strong>Finalizat:</strong> {{ act.data_finalizare.strftime('%d.%m.%Y %H:%M') }}</p>{% endif %}
+    </div>
+
+    {% if act.descriere %}
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">Descriere</h6>
+        <p class="mb-0">{{ act.descriere }}</p>
+    </div>
+    {% endif %}
+
+    {% if act.comanda %}
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold">Alte activități pe aceeași comandă</h6>
+        {% for sibling in act.comanda.activitati.order_by(Activitate.ordine).all() if sibling.id != act.id %}
+        <div class="d-flex align-items-center gap-2 py-1 border-bottom">
+            {% if sibling.status == 'finalizat' %}<i class="bi bi-check-circle-fill text-success"></i>
+            {% elif sibling.status == 'in_lucru' %}<i class="bi bi-play-circle-fill text-primary"></i>
+            {% else %}<i class="bi bi-circle text-muted"></i>{% endif %}
+            <a href="/admin/activitati/{{ sibling.id }}" class="{% if sibling.status=='finalizat' %}text-muted{% endif %}">{{ sibling.titlu.split(' - ')[0] }}</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Comentarii -->
+<div class="col-md-8">
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-chat-dots me-2"></i>Comentarii & Actualizări</h6>
+        <div id="comments" style="max-height:500px;overflow-y:auto">
+        {% for c in act.comentarii %}
+        <div class="d-flex gap-2 mb-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:36px;height:36px;background:#1D2F34;color:white;font-size:.8rem;font-weight:bold">
+                {{ c.utilizator.nume_complet[:1] }}
+            </div>
+            <div class="flex-grow-1">
+                <div><strong>{{ c.utilizator.nume_complet }}</strong> <small class="text-muted">{{ c.data_creare.strftime('%d.%m.%Y %H:%M') }}</small></div>
+                <p class="mb-0">{{ c.mesaj }}</p>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not act.comentarii %}
+        <p class="text-muted text-center py-3" id="noComments">Niciun comentariu încă.</p>
+        {% endif %}
+        </div>
+        <hr>
+        <div class="d-flex gap-2">
+            <input id="commentInput" class="form-control" placeholder="Scrie un comentariu..." onkeydown="if(event.key==='Enter')addComment()">
+            <button class="btn btn-hsl" onclick="addComment()"><i class="bi bi-send"></i></button>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const AID = {{ act.id }};
+function setStatus(s){
+    fetch(`/api/activitate/${AID}/status`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({status:s})}).then(r=>r.json()).then(d=>{
+        if(d.success) location.reload(); else alert(d.error);
+    });
+}
+function assignTo(uid){
+    fetch(`/api/activitate/${AID}/assign`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({asignat_id:uid})}).then(r=>r.json());
+}
+function addComment(){
+    const inp = document.getElementById('commentInput');
+    const msg = inp.value.trim();
+    if(!msg) return;
+    fetch(`/api/activitate/${AID}/comentariu`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({mesaj:msg})}).then(r=>r.json()).then(d=>{
+        if(d.success){
+            const nc = document.getElementById('noComments');
+            if(nc) nc.remove();
+            const div = document.getElementById('comments');
+            div.innerHTML += `<div class="d-flex gap-2 mb-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:36px;height:36px;background:#61993B;color:white;font-size:.8rem;font-weight:bold">
+                    ${d.user[0]}</div>
+                <div class="flex-grow-1"><div><strong>${d.user}</strong> <small class="text-muted">${d.data}</small></div>
+                <p class="mb-0">${msg}</p></div></div>`;
+            div.scrollTop = div.scrollHeight;
+            inp.value = '';
+        }
+    });
+}
+function stergeActivitate(){if(!confirm('Sigur vrei să ștergi această activitate?'))return;fetch('/api/activitate/{{ act.id }}/sterge',{method:'POST',headers:{'Content-Type':'application/json'}}).then(r=>r.json()).then(d=>{if(d.success){alert('Activitatea a fost ștearsă.');location.href='/admin/activitati';}else alert(d.error)})}
+</script>{% endblock %}

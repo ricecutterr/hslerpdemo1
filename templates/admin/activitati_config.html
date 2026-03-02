@@ -1,0 +1,109 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Configurare Activități - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-kanban me-2"></i>Configurare Activități</h2>
+    <a href="/admin/activitati" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Înapoi la Activități</a>
+</div>
+
+<div class="row g-4">
+<!-- TIPURI -->
+<div class="col-md-5">
+<div class="bg-white rounded-3 p-3">
+    <h5 class="fw-bold mb-3">Tipuri de Activități</h5>
+    <p class="text-muted small">Definește categoriile de task-uri folosite în firmă.</p>
+    <div id="tipuriList">
+    {% for t in tipuri %}
+    <div class="d-flex align-items-center gap-2 py-2 border-bottom" data-id="{{ t.id }}">
+        <input type="color" value="{{ t.culoare }}" style="width:30px;height:30px;border:none;padding:0" onchange="updateTip({{ t.id }},{culoare:this.value})">
+        <span class="fw-bold flex-grow-1">{{ t.nume }}</span>
+        {% if not t.activ %}<span class="badge bg-secondary">Inactiv</span>{% endif %}
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteTip({{ t.id }},this)"><i class="bi bi-trash"></i></button>
+    </div>
+    {% endfor %}
+    </div>
+    <hr>
+    <div class="d-flex gap-2">
+        <input type="color" id="newTipColor" value="#61993B" style="width:38px;height:38px;border:none;padding:0">
+        <input type="text" id="newTipNume" class="form-control form-control-sm" placeholder="Nume tip nou...">
+        <button class="btn btn-sm btn-hsl" onclick="addTip()"><i class="bi bi-plus-lg"></i></button>
+    </div>
+</div>
+</div>
+
+<!-- ȘABLOANE -->
+<div class="col-md-7">
+<div class="bg-white rounded-3 p-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Șabloane Activități</h5>
+        <a href="/admin/sabloane/nou" class="btn btn-sm btn-hsl"><i class="bi bi-plus-lg me-1"></i>Șablon Nou</a>
+    </div>
+    <p class="text-muted small">Grupuri de task-uri predefinite care se pot aplica manual sau automat la anumite acțiuni.</p>
+    {% for s in sabloane %}
+    <div class="border rounded p-3 mb-2 {% if not s.activ %}opacity-50{% endif %}">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h6 class="fw-bold mb-1">{{ s.nume }}</h6>
+                {% if s.descriere %}<small class="text-muted">{{ s.descriere }}</small><br>{% endif %}
+                <span class="badge bg-{% if s.trigger=='manual' %}secondary{% else %}primary{% endif %} me-1">{{ s.trigger_display }}</span>
+                {% if not s.activ %}<span class="badge bg-secondary">Inactiv</span>{% endif %}
+                <span class="badge bg-light text-dark">{{ s.linii|length }} task-uri</span>
+            </div>
+            <div class="d-flex gap-1">
+                {% if s.trigger == 'manual' %}
+                <button class="btn btn-sm btn-outline-success" onclick="aplicaSablon({{ s.id }})" title="Aplică acum"><i class="bi bi-play-fill"></i></button>
+                {% endif %}
+                <a href="/admin/sabloane/{{ s.id }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                <form method="POST" action="/admin/sabloane/{{ s.id }}/sterge" style="display:inline" onsubmit="return confirm('Sigur?')">
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+        {% if s.linii %}
+        <div class="mt-2">
+            {% for l in s.linii %}
+            <div class="d-flex align-items-center gap-1 py-1 {% if not loop.last %}border-bottom{% endif %}">
+                <small class="text-muted">{{ loop.index }}.</small>
+                <small class="fw-bold">{{ l.titlu }}</small>
+                {% if l.tip %}<span class="badge" style="background:{{ l.tip.culoare }};font-size:.65rem">{{ l.tip.nume }}</span>{% endif %}
+                <span class="badge bg-light text-dark" style="font-size:.65rem">{{ l.prioritate }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-3">Niciun șablon definit. <a href="/admin/sabloane/nou">Creează primul.</a></p>
+    {% endfor %}
+</div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+function addTip(){
+    const nume=document.getElementById('newTipNume').value.trim();
+    const culoare=document.getElementById('newTipColor').value;
+    if(!nume) return;
+    fetch('/api/tip-activitate',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({nume,culoare})}).then(r=>r.json()).then(d=>{
+        if(d.success) location.reload();
+    });
+}
+function updateTip(id,data){
+    fetch(`/api/tip-activitate/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(data)});
+}
+function deleteTip(id,btn){
+    if(!confirm('Șterge tipul?')) return;
+    fetch(`/api/tip-activitate/${id}`,{method:'DELETE'}).then(r=>r.json()).then(d=>{
+        if(d.success) btn.closest('[data-id]').remove();
+    });
+}
+function aplicaSablon(sid){
+    if(!confirm('Aplică acest șablon? Se vor crea activitățile definite.')) return;
+    fetch(`/api/sablon/${sid}/aplica`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({})}).then(r=>r.json()).then(d=>{
+        if(d.success) alert(`${d.count} activități create!`);
+    });
+}
+</script>{% endblock %}

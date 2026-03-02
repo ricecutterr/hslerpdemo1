@@ -1,0 +1,71 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Activități - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-kanban me-2"></i>Activități</h2>
+    {% if current_user.has_access('activitati_manage') %}
+    <div class="d-flex gap-2">
+        <a href="/admin/activitati/config" class="btn btn-outline-secondary"><i class="bi bi-sliders me-1"></i>Configurare</a>
+        <a href="/admin/activitati/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-2"></i>Activitate Nouă</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-3 p-3 mb-3 d-flex gap-3 flex-wrap align-items-center">
+    <div>
+        <select class="form-select form-select-sm" onchange="location.href='?status='+this.value+'&asignat={{ asignat_filter }}'">
+            <option value="">Toate statusurile</option>
+            <option value="de_facut" {{ 'selected' if status_filter=='de_facut' }}>De Făcut</option>
+            <option value="in_lucru" {{ 'selected' if status_filter=='in_lucru' }}>În Lucru</option>
+            <option value="in_asteptare" {{ 'selected' if status_filter=='in_asteptare' }}>În Așteptare</option>
+            <option value="finalizat" {{ 'selected' if status_filter=='finalizat' }}>Finalizat</option>
+        </select>
+    </div>
+    <div>
+        <select class="form-select form-select-sm" onchange="location.href='?status={{ status_filter }}&asignat='+this.value">
+            <option value="">Toți utilizatorii</option>
+            {% for u in utilizatori %}
+            <option value="{{ u.id }}" {{ 'selected' if asignat_filter == u.id|string }}>{{ u.nume_complet }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="ms-auto">
+        <span class="badge bg-secondary">{{ activitati|length }} activități</span>
+    </div>
+</div>
+
+<div class="bg-white rounded-3 p-3">
+<table class="table table-hsl table-hover mb-0">
+<thead><tr><th width="30"></th><th>Titlu</th><th>Tip</th><th>Comandă</th><th>Asignat</th><th>Deadline</th><th>Prioritate</th><th>Status</th></tr></thead>
+<tbody>
+{% for a in activitati %}
+<tr onclick="location.href='/admin/activitati/{{ a.id }}'" style="cursor:pointer"
+    class="{% if a.is_overdue %}table-danger{% elif a.status=='finalizat' %}table-light text-muted{% endif %}">
+    <td>
+        {% if a.status == 'finalizat' %}<i class="bi bi-check-circle-fill text-success"></i>
+        {% elif a.status == 'in_lucru' %}<i class="bi bi-play-circle-fill text-primary"></i>
+        {% elif a.status == 'in_asteptare' %}<i class="bi bi-pause-circle-fill text-warning"></i>
+        {% elif a.status == 'anulat' %}<i class="bi bi-x-circle-fill text-danger"></i>
+        {% else %}<i class="bi bi-circle text-muted"></i>{% endif %}
+    </td>
+    <td class="fw-bold">{{ a.titlu }}</td>
+    <td>{% if a.tip_obj %}<span class="badge" style="background:{{ a.tip_culoare }};color:#fff">{{ a.tip_display }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+    <td>{% if a.comanda %}<a href="/admin/comenzi/{{ a.comanda_id }}" onclick="event.stopPropagation()">{{ a.comanda.numar }}</a>{% else %}-{% endif %}</td>
+    <td>{% if a.asignat %}<span class="badge bg-info text-dark">{{ a.asignat.nume_complet }}</span>{% else %}<span class="text-muted">Neasignat</span>{% endif %}</td>
+    <td>{% if a.deadline %}
+        <span class="{% if a.is_overdue %}text-danger fw-bold{% endif %}">{{ a.deadline.strftime('%d.%m.%Y') }}</span>
+        {% if a.is_overdue %}<i class="bi bi-exclamation-triangle-fill text-danger ms-1"></i>{% endif %}
+        {% else %}-{% endif %}</td>
+    <td><span class="badge bg-{% if a.prioritate=='urgenta' %}danger{% elif a.prioritate=='ridicata' %}warning text-dark{% elif a.prioritate=='normala' %}info{% else %}light text-dark{% endif %}">
+        {{ a.prioritate_display }}</span></td>
+    <td><span class="badge bg-{% if a.status=='de_facut' %}secondary{% elif a.status=='in_lucru' %}primary{% elif a.status=='in_asteptare' %}warning text-dark{% elif a.status=='finalizat' %}success{% else %}danger{% endif %}">
+        {{ a.status_display }}</span></td>
+</tr>
+{% endfor %}
+{% if not activitati %}
+<tr><td colspan="8" class="text-center text-muted py-4">Nicio activitate. <a href="/admin/activitati/nou">Creează prima.</a></td></tr>
+{% endif %}
+</tbody></table>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Utilizatori - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-people me-2"></i>Utilizatori</h2>
+    <a href="/admin/utilizatori/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-1"></i>Utilizator Nou</a>
+</div>
+<div class="bg-white rounded-3 p-3">
+<table class="table table-hover">
+<thead><tr><th>Nume</th><th>Username</th><th>Rol</th><th>Email</th><th>Comision</th><th>Status</th><th></th></tr></thead>
+<tbody>
+{% for u in utilizatori %}
+<tr>
+    <td class="fw-bold">{{ u.nume_complet }}</td>
+    <td><code>{{ u.username }}</code></td>
+    <td><span class="badge {{ 'bg-danger' if u.is_admin else 'bg-success' }}">{{ u.rol_nume }}</span></td>
+    <td>{{ u.email }}</td>
+    <td>{{ u.comision_procent }}%</td>
+    <td>{% if u.activ %}<span class="badge bg-success">Activ</span>{% else %}<span class="badge bg-secondary">Inactiv</span>{% endif %}</td>
+    <td><a href="/admin/utilizatori/{{ u.id }}" class="btn btn-outline-primary btn-sm">✏️</a></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}

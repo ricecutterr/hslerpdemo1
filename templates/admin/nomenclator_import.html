@@ -1,0 +1,110 @@
+{% extends "admin/layout.html" %}
+{% block title %}Import Nomenclator{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div><h2><i class="bi bi-upload me-2"></i>Import Nomenclator</h2>
+        <small class="text-muted">Importă produse, parametri, variante și accesorii din Excel</small>
+    </div>
+    <a href="/admin/nomenclator" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Nomenclator</a>
+</div>
+
+{% if results %}
+<div class="row g-3 mb-4">
+    {% for key, label, icon, color in [
+        ('produse', 'Produse', 'bi-box', 'primary'),
+        ('parametri', 'Parametri', 'bi-sliders', 'info'),
+        ('variante', 'Variante', 'bi-diagram-3', 'success'),
+        ('accesorii', 'Accesorii', 'bi-gear', 'warning')
+    ] %}
+    {% if results[key] %}
+    <div class="col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold"><i class="bi {{ icon }} me-2 text-{{ color }}"></i>{{ label }}</div>
+            <div class="card-body">
+                {% if results[key].added is defined %}
+                <span class="badge bg-success"><i class="bi bi-plus-circle me-1"></i>{{ results[key].added }} adăugate</span>
+                {% endif %}
+                {% if results[key].skipped is defined and results[key].skipped > 0 %}
+                <span class="badge bg-secondary"><i class="bi bi-skip-forward me-1"></i>{{ results[key].skipped }} ignorate</span>
+                {% endif %}
+                {% if results[key].errors %}
+                <div class="mt-2">
+                    <span class="badge bg-danger">{{ results[key].errors|length }} erori</span>
+                    <ul class="list-unstyled small text-danger mt-1 mb-0">
+                        {% for err in results[key].errors[:5] %}
+                        <li><i class="bi bi-exclamation-triangle me-1"></i>{{ err }}</li>
+                        {% endfor %}
+                        {% if results[key].errors|length > 5 %}
+                        <li class="text-muted">... +{{ results[key].errors|length - 5 }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data" id="importForm">
+                    <div class="upload-zone text-center p-5 rounded-3 mb-3" id="dropZone"
+                         style="border:2px dashed #ccc;background:#fafafa;cursor:pointer;transition:all .2s">
+                        <i class="bi bi-cloud-upload fs-1 text-muted"></i>
+                        <div class="mt-2 fw-bold">Trage fișierul Excel aici</div>
+                        <div class="text-muted small">sau click pentru a selecta</div>
+                        <input type="file" name="file" id="fileInput" accept=".xlsx" class="d-none">
+                        <div id="fileName" class="mt-2 text-success fw-bold" style="display:none"></div>
+                    </div>
+                    <button type="submit" class="btn w-100" style="background:#61993B;color:#fff" id="submitBtn" disabled>
+                        <i class="bi bi-upload me-2"></i>Importă
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold"><i class="bi bi-info-circle me-2"></i>Instrucțiuni</div>
+            <div class="card-body small">
+                <a href="/admin/nomenclator/import/template" class="btn btn-outline-primary btn-sm mb-3 w-100">
+                    <i class="bi bi-download me-1"></i>Descarcă Template Excel
+                </a>
+                <p class="fw-bold mb-1"><i class="bi bi-1-circle me-1 text-primary"></i> Sheet "Produse"</p>
+                <p class="text-muted mb-2">Produsele de bază: cod, denumire, preț, categorie</p>
+                <p class="fw-bold mb-1"><i class="bi bi-2-circle me-1 text-info"></i> Sheet "Parametri"</p>
+                <p class="text-muted mb-2">Parametrii per produs. Tip <code>dropdown</code> (valori cu |) sau <code>dimension</code> (LxH, canate opțional)</p>
+                <p class="fw-bold mb-1"><i class="bi bi-3-circle me-1 text-success"></i> Sheet "Variante"</p>
+                <p class="text-muted mb-2">Fiecare variantă cu cod, preț, coloane <code>Param: cheie</code>. <code>Param: canate</code> pt canate.</p>
+                <p class="fw-bold mb-1"><i class="bi bi-4-circle me-1 text-warning"></i> Sheet "Accesorii"</p>
+                <p class="text-muted mb-2">Broaște, balamale, sticlă, etc.</p>
+                <hr>
+                <div class="text-muted small">
+                    <i class="bi bi-shield-check me-1 text-success"></i> Codurile existente sunt <strong>ignorate</strong><br>
+                    <i class="bi bi-folder-plus me-1 text-primary"></i> Categoriile noi se <strong>creează automat</strong><br>
+                    <i class="bi bi-exclamation-triangle me-1 text-warning"></i> Ștergeți rândurile de exemplu (albastre)
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone=document.getElementById('dropZone'),fileInput=document.getElementById('fileInput'),
+      fileName=document.getElementById('fileName'),submitBtn=document.getElementById('submitBtn');
+dropZone.addEventListener('click',()=>fileInput.click());
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.style.borderColor='#61993B';dropZone.style.background='#f0fdf4'});
+dropZone.addEventListener('dragleave',()=>{dropZone.style.borderColor='#ccc';dropZone.style.background='#fafafa'});
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.style.borderColor='#ccc';dropZone.style.background='#fafafa';if(e.dataTransfer.files.length){fileInput.files=e.dataTransfer.files;showFile()}});
+fileInput.addEventListener('change',showFile);
+function showFile(){if(fileInput.files.length){fileName.textContent='\ud83d\udcc4 '+fileInput.files[0].name;fileName.style.display='';submitBtn.disabled=false;dropZone.style.borderColor='#61993B'}}
+document.getElementById('importForm').addEventListener('submit',function(){submitBtn.disabled=true;submitBtn.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Se import\u0103...'});
+</script>
+{% endblock %}

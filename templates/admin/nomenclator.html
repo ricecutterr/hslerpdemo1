@@ -1,0 +1,91 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Nomenclator Produse - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-box me-2"></i>Nomenclator Produse</h2>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="badge bg-secondary fs-6">{{ produse|length }} produse · {{ accesorii|length }} accesorii</span>
+        <a href="/admin/nomenclator/import" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Import Excel</a>
+    </div>
+</div>
+
+<!-- Search + Filters -->
+<div class="bg-white rounded-3 p-3 mb-3">
+    <form class="d-flex gap-3 flex-wrap align-items-center" method="GET">
+        <div class="flex-grow-1">
+            <input type="text" name="q" class="form-control" placeholder="Caută după cod sau denumire..." value="{{ search }}">
+        </div>
+        <div>
+            <select name="categorie" class="form-select" onchange="this.form.submit()">
+                <option value="">Toate categoriile</option>
+                {% for c in categorii %}
+                <option value="{{ c.id }}" {{ 'selected' if cat_filter == c.id|string }}>{{ c.nume }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn btn-hsl"><i class="bi bi-search me-1"></i>Caută</button>
+        {% if search or cat_filter %}<a href="/admin/nomenclator" class="btn btn-outline-secondary">Resetează</a>{% endif %}
+    </form>
+</div>
+
+<!-- Produse -->
+<div class="bg-white rounded-3 p-3 mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-grid me-2"></i>Produse Configurabile</h5>
+    <table class="table table-hsl table-hover mb-0">
+    <thead><tr><th>Cod</th><th>Denumire</th><th>Categorii</th><th>Preț Bază</th><th>UM</th><th>Stoc</th><th>Variante</th></tr></thead>
+    <tbody>
+    {% for p in produse %}
+    {% set vc = p.variante_config %}
+    {% set variants = vc.get('variants', []) %}
+    <tr onclick="location.href='/admin/nomenclator/produs/{{ p.id }}'" style="cursor:pointer">
+        <td><code class="fw-bold">{{ p.cod }}</code></td>
+        <td>{{ p.denumire }}</td>
+        <td>{% for pc in p.categorii %}
+            <span class="badge bg-light text-dark me-1">{{ pc.categorie.nume if pc.categorie else '?' }}</span>
+            {% endfor %}</td>
+        <td class="fw-bold">{{ '{:,.2f}'.format(p.pret) }} €</td>
+        <td>{{ p.um }}</td>
+        <td>{% if variants %}
+            {% set ns = namespace(total=0) %}
+            {% for v in variants %}
+                {% set suffix = v.get('code') or v.get('suffix', '') %}
+                {% set fc = suffix if suffix.startswith(p.cod) else p.cod ~ suffix %}
+                {% set qty = stoc_map.get(fc, 0) %}
+                {% set ns.total = ns.total + qty %}
+            {% endfor %}
+            {% if ns.total > 0 %}<span class="badge bg-success">{{ ns.total|int }}</span>
+            {% else %}<span class="text-muted small">0</span>{% endif %}
+            {% else %}
+            {% set qty = stoc_map.get(p.cod, 0) %}
+            {% if qty > 0 %}<span class="badge bg-success">{{ qty|int }}</span>
+            {% else %}<span class="text-muted small">0</span>{% endif %}
+            {% endif %}</td>
+        <td>{% if variants %}<span class="badge bg-info">{{ variants|length }}</span>
+            {% else %}-{% endif %}</td>
+    </tr>
+    {% endfor %}
+    {% if not produse %}<tr><td colspan="7" class="text-center text-muted py-3">Niciun produs găsit.</td></tr>{% endif %}
+    </tbody></table>
+</div>
+
+<!-- Accesorii -->
+<div class="bg-white rounded-3 p-3">
+    <h5 class="fw-bold mb-3"><i class="bi bi-puzzle me-2"></i>Accesorii</h5>
+    <table class="table table-hsl table-hover mb-0">
+    <thead><tr><th>Cod</th><th>Denumire</th><th>Categorie</th><th>Preț</th><th>Mod Preț</th><th>UM</th><th>Standalone</th></tr></thead>
+    <tbody>
+    {% for a in accesorii %}
+    <tr>
+        <td><code class="fw-bold">{{ a.cod }}</code></td>
+        <td>{{ a.denumire }}</td>
+        <td>{{ a.categorie.nume if a.categorie else '-' }}</td>
+        <td class="fw-bold">{{ '{:,.2f}'.format(a.pret) }} €</td>
+        <td><span class="badge bg-light text-dark">{{ a.pret_mode }}</span></td>
+        <td>{{ a.um }}</td>
+        <td>{% if a.poate_standalone %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    {% if not accesorii %}<tr><td colspan="7" class="text-center text-muted py-3">Niciun accesoriu găsit.</td></tr>{% endif %}
+    </tbody></table>
+</div>
+{% endblock %}

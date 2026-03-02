@@ -1,0 +1,24 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Clienți - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-people me-2"></i>Clienți</h2>
+    <a href="/admin/clienti/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-2"></i>Client Nou</a>
+</div>
+<div class="bg-white rounded-3 p-3">
+    <form class="mb-3 d-flex gap-2"><input type="text" name="q" class="form-control" placeholder="Caută client..." value="{{ q }}">
+    <button class="btn btn-outline-secondary">Caută</button></form>
+    <table class="table table-hsl table-hover">
+    <thead><tr><th>Nume</th><th>CUI</th><th>Email</th><th>Telefon</th><th>Oraș</th><th>Oferte</th><th>Comenzi</th></tr></thead>
+    <tbody>
+    {% for c in clienti %}
+    <tr onclick="location.href='/admin/clienti/{{ c.id }}/detalii'" style="cursor:pointer">
+        <td class="fw-bold">{{ c.nume }}</td><td>{{ c.cui or '-' }}</td><td>{{ c.email or '-' }}</td>
+        <td>{{ c.telefon or '-' }}</td><td>{{ c.oras or '-' }}</td>
+        <td><span class="badge bg-info">{{ c.nr_oferte }}</span></td>
+        <td><span class="badge bg-primary">{{ c.nr_comenzi }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+</div>
+{% endblock %}

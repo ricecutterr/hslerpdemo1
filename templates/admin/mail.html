@@ -1,0 +1,397 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Mail - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.mail-wrap{display:flex;height:calc(100vh - 120px);background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+
+/* Left sidebar - folders */
+.ml-side{width:200px;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;background:#fff;flex-shrink:0}
+.ml-side-head{padding:10px 12px;border-bottom:1px solid #e0e0e0}
+.ml-side-folders{flex:1;overflow-y:auto;padding:4px 0}
+.ml-folder{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:.82rem;color:#555;transition:all .1s;border-left:3px solid transparent}
+.ml-folder:hover{background:#f8f9fa}
+.ml-folder.active{background:#f0fdf4;border-left-color:#61993B;font-weight:700;color:#61993B}
+.ml-folder .ml-fbadge{margin-left:auto;background:#dc3545;color:#fff;font-size:.6rem;padding:1px 6px;border-radius:8px;font-weight:700}
+.ml-side-bottom{padding:10px 12px;border-top:1px solid #e0e0e0;font-size:.72rem}
+.ml-acc{display:flex;align-items:center;gap:6px;padding:2px 0}
+.ml-acc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Middle - thread list */
+.ml-list{width:340px;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;flex-shrink:0}
+.ml-list-head{padding:8px 10px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;gap:6px}
+.ml-list-head input{flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;font-size:.82rem;outline:none}
+.ml-list-head input:focus{border-color:#61993B}
+.ml-list-body{flex:1;overflow-y:auto}
+
+.ml-thread{display:flex;gap:8px;padding:9px 10px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background .1s;align-items:flex-start}
+.ml-thread:hover{background:#f8f9fa}
+.ml-thread.active{background:#e8f5e9}
+.ml-thread.unread .ml-t-from,.ml-thread.unread .ml-t-subj{font-weight:700}
+.ml-t-dot{width:8px;height:8px;border-radius:50%;background:#61993B;flex-shrink:0;margin-top:6px}
+.ml-t-dot.read{background:transparent}
+.ml-t-body{flex:1;overflow:hidden;min-width:0}
+.ml-t-from{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-t-subj{font-size:.78rem;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-t-snip{font-size:.72rem;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-t-meta{text-align:right;flex-shrink:0}
+.ml-t-date{font-size:.68rem;color:#999;white-space:nowrap}
+.ml-t-icons{display:flex;gap:3px;justify-content:flex-end;margin-top:2px}
+.ml-t-att{color:#aaa;font-size:.7rem}
+.ml-t-count{font-size:.6rem;color:#888;background:#f0f0f0;border-radius:3px;padding:0 4px}
+.ml-t-agent{font-size:.58rem;padding:1px 4px;border-radius:3px;background:#e8f5e9;color:#2e7d32;white-space:nowrap}
+
+/* Right - detail */
+.ml-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.ml-d-empty{display:flex;align-items:center;justify-content:center;flex:1;color:#bbb;font-size:.85rem;gap:8px}
+.ml-d-head{padding:10px 14px;border-bottom:1px solid #e0e0e0;background:#fafafa}
+.ml-d-subj{font-size:1rem;font-weight:700;margin-bottom:6px}
+.ml-d-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ml-d-actions select{font-size:.75rem;padding:2px 6px}
+.ml-d-actions .badge{font-size:.7rem}
+.ml-d-msgs{flex:1;overflow-y:auto;padding:12px 16px;background:#fafafa}
+
+/* Individual mail message */
+.mm{background:#fff;border:1px solid #e9ecef;border-radius:8px;margin-bottom:10px;overflow:hidden}
+.mm.sent{border-left:3px solid #61993B}
+.mm-head{display:flex;gap:10px;padding:10px 12px;background:#fdfdfd;border-bottom:1px solid #f0f0f0;align-items:flex-start}
+.mm-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.75rem;flex-shrink:0}
+.mm-info{flex:1;min-width:0}
+.mm-from{font-weight:700;font-size:.82rem}
+.mm-to{font-size:.7rem;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-date{font-size:.7rem;color:#999;flex-shrink:0}
+.mm-body{padding:12px;font-size:.84rem;line-height:1.5;overflow-x:auto}
+.mm-body img{max-width:100%}
+.mm-atts{padding:6px 12px;border-top:1px solid #f0f0f0;display:flex;gap:6px;flex-wrap:wrap}
+.mm-att{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f5f5f5;border-radius:4px;font-size:.72rem;cursor:pointer;text-decoration:none;color:#333}
+.mm-att:hover{background:#e8f5e9}
+
+/* Reply compose at bottom */
+.ml-reply{padding:10px 14px;border-top:1px solid #e0e0e0;background:#f0f0f0}
+.ml-reply textarea{width:100%;border:1px solid #ddd;border-radius:8px;padding:8px 12px;font-size:.85rem;resize:none;max-height:100px;outline:none;background:#fff}
+.ml-reply textarea:focus{border-color:#61993B}
+.ml-reply-row{display:flex;gap:8px;margin-top:6px;align-items:center}
+</style>
+{% endblock %}
+{% block content %}
+<div class="mail-wrap">
+    <!-- Left: Folders -->
+    <div class="ml-side">
+        <div class="ml-side-head">
+            <button class="btn btn-sm w-100" style="background:#61993B;color:#fff" onclick="showCompose()"><i class="bi bi-pencil-square me-1"></i>Compune</button>
+        </div>
+        <div class="ml-side-folders">
+            <div class="ml-folder active" onclick="setFolder('inbox',this)"><i class="bi bi-inbox"></i> Inbox <span class="ml-fbadge" id="badgeInbox" style="display:none"></span></div>
+            <div class="ml-folder" onclick="setFolder('atribuite',this)"><i class="bi bi-person-check"></i> Atribuite mie</div>
+            {% if current_user.username == 'admin' %}
+            <div class="ml-folder" onclick="setFolder('toate',this)"><i class="bi bi-tray"></i> Toate</div>
+            {% endif %}
+            <div class="ml-folder" onclick="setFolder('rezolvat',this)"><i class="bi bi-check-circle"></i> Rezolvate</div>
+        </div>
+        <div class="ml-side-bottom">
+            <div class="fw-bold mb-1">Conturi:</div>
+            {% for c in conturi %}
+            <div class="ml-acc">
+                <div class="ml-acc-dot" style="background:{% if c.tip=='office' %}#fd7e14{% elif c.tip=='monitorizare' %}#0dcaf0{% else %}#61993B{% endif %}"></div>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.email }}</span>
+            </div>
+            {% endfor %}
+            <a href="/admin/mail/connect" class="btn btn-outline-secondary btn-sm w-100 mt-1" style="font-size:.65rem"><i class="bi bi-plus-circle me-1"></i>Conectează</a>
+        </div>
+    </div>
+
+    <!-- Middle: Thread list -->
+    <div class="ml-list">
+        <div class="ml-list-head">
+            <input type="text" id="mailSearch" placeholder="Caută..." oninput="searchMail(this.value)">
+            <button class="btn btn-sm btn-outline-secondary" onclick="syncMail(false)" id="syncBtn" title="Sincronizează"><i class="bi bi-arrow-clockwise"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="syncMail(true)" title="Sync profund (mai multe mailuri)" style="font-size:.65rem">Profund</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="syncMail(true)" title="Încarcă mai multe mailuri" style="font-size:.7rem">+</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="syncMail(true)" title="Încarcă mai multe mailuri" style="font-size:.7rem">Mai multe</button>
+        </div>
+        <div class="ml-list-body" id="threadList"></div>
+    </div>
+
+    <!-- Right: Thread detail -->
+    <div class="ml-detail" id="mailDetail">
+        <div class="ml-d-empty"><i class="bi bi-envelope-open" style="font-size:2rem"></i>Selectează un mail</div>
+    </div>
+</div>
+
+<!-- Compose Modal -->
+<div class="modal fade" id="composeModal" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title mb-0"><i class="bi bi-pencil-square me-2"></i>Mail Nou</h6><button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+    <input class="form-control form-control-sm mb-2" id="composeTo" placeholder="Către">
+    <input class="form-control form-control-sm mb-2" id="composeCc" placeholder="CC (opțional)">
+    <input class="form-control form-control-sm mb-2" id="composeSubject" placeholder="Subiect">
+    <textarea class="form-control" id="composeBody" rows="10" placeholder="Mesaj..." style="font-size:.85rem"></textarea>
+</div>
+<div class="modal-footer py-2">
+    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anulează</button>
+    <button class="btn btn-sm" style="background:#61993B;color:#fff" onclick="sendCompose()"><i class="bi bi-send me-1"></i>Trimite</button>
+</div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ME={{current_user.id}};
+const USERS={{users|tojson|safe}};
+let currentFolder='inbox', activeThread=null, searchTimer=null;
+
+function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
+function fmtSize(b){if(!b)return '';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(0)+' KB';return(b/1048576).toFixed(1)+' MB';}
+const avColors=['#1fa855','#e6772e','#7c64d6','#d4447c','#0d94c3','#8b5e3c','#6366f1','#dc2626'];
+function avColor(s){return avColors[hashStr(s||'')%avColors.length];}
+
+// ═══ FOLDERS ═══
+function setFolder(f,el){
+    currentFolder=f;
+    document.querySelectorAll('.ml-folder').forEach(x=>x.classList.remove('active'));
+    if(el)el.classList.add('active');
+    activeThread=null;
+    document.getElementById('mailDetail').innerHTML='<div class="ml-d-empty"><i class="bi bi-envelope-open" style="font-size:2rem"></i>Selectează un mail</div>';
+    loadThreads();
+}
+
+// ═══ THREADS ═══
+let currentPage=1, totalPages=1, loadingMore=false;
+
+function loadThreads(search,page){
+    page=page||1;
+    currentPage=page;
+    let url=`/api/mail/threads?folder=${currentFolder}&page=${page}`;
+    if(search)url+=`&q=${encodeURIComponent(search)}`;
+    if(currentFolder==='rezolvat')url=`/api/mail/threads?status=rezolvat&page=${page}`;
+    fetch(url).then(r=>r.json()).then(d=>{
+        totalPages=d.pages||1;
+        const el=document.getElementById('threadList');
+        if(!d.threads.length&&page===1){el.innerHTML='<div style="padding:24px;text-align:center;color:#bbb;font-size:.82rem">Niciun mail</div>';return;}
+        const html=d.threads.map(t=>`
+            <div class="ml-thread${activeThread===t.id?' active':''}${!t.citit?' unread':''}" onclick="openThread(${t.id})">
+                <div class="ml-t-dot${t.citit?' read':''}"></div>
+                <div class="ml-t-body">
+                    <div class="ml-t-from">${esc(t.de_la)}</div>
+                    <div class="ml-t-subj">${esc(t.subiect)}</div>
+                    <div class="ml-t-snip">${esc(t.snippet)}</div>
+                </div>
+                <div class="ml-t-meta">
+                    <div class="ml-t-date">${t.data_scurta}</div>
+                    <div class="ml-t-icons">
+                        ${t.are_atasamente?'<span class="ml-t-att"><i class="bi bi-paperclip"></i></span>':''}
+                        ${t.nr_mesaje>1?'<span class="ml-t-count">'+t.nr_mesaje+'</span>':''}
+                    </div>
+                    ${t.atribuit?'<div class="ml-t-agent">'+esc(t.atribuit)+'</div>':''}
+                </div>
+            </div>`).join('');
+        if(page===1)el.innerHTML=html; else el.insertAdjacentHTML('beforeend',html);
+        loadingMore=false;
+    });
+}
+
+// Infinite scroll on thread list
+document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('threadList').addEventListener('scroll',function(){
+        if(loadingMore||currentPage>=totalPages)return;
+        if(this.scrollTop+this.clientHeight>=this.scrollHeight-50){
+            loadingMore=true;
+            loadThreads(document.getElementById('mailSearch').value,currentPage+1);
+        }
+    });
+});
+
+function searchMail(q){clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadThreads(q),300);}
+
+// ═══ OPEN THREAD ═══
+function openThread(id){
+    activeThread=id;
+    document.querySelectorAll('.ml-thread').forEach(t=>t.classList.remove('active'));
+    // Find and activate the clicked thread
+    document.querySelectorAll('.ml-thread').forEach(t=>{
+        if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes('('+id+')'))t.classList.add('active');
+    });
+    
+    fetch(`/api/mail/thread/${id}`).then(r=>r.json()).then(d=>{
+        const t=d.thread;
+        const det=document.getElementById('mailDetail');
+        
+        // Header
+        let h=`<div class="ml-d-head">
+            <div class="ml-d-subj">${esc(t.subiect||'(fără subiect)')}</div>
+            <div class="ml-d-actions">
+                <select class="form-select form-select-sm" style="width:auto;font-size:.72rem" onchange="assignThread(${t.id},this.value)">
+                    <option value="">— Atribuie —</option>
+                    ${USERS.map(u=>`<option value="${u.id}"${t.atribuit_id===u.id?' selected':''}>${esc(u.nume_complet)}</option>`).join('')}
+                </select>
+                <select class="form-select form-select-sm" style="width:auto;font-size:.72rem" onchange="setStatus(${t.id},this.value)">
+                    <option value="nou"${t.status==='nou'?' selected':''}>Nou</option>
+                    <option value="atribuit"${t.status==='atribuit'?' selected':''}>Atribuit</option>
+                    <option value="in_lucru"${t.status==='in_lucru'?' selected':''}>În Lucru</option>
+                    <option value="rezolvat"${t.status==='rezolvat'?' selected':''}>Rezolvat</option>
+                    <option value="arhivat"${t.status==='arhivat'?' selected':''}>Arhivat</option>
+                </select>
+                ${t.client?'<span class="badge bg-success" style="font-size:.68rem"><i class="bi bi-people me-1"></i>'+esc(t.client)+'</span>':'<button class="btn btn-outline-secondary btn-sm" style="font-size:.7rem" onclick="linkClient('+t.id+')"><i class="bi bi-people me-1"></i>Client</button>'}
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-outline-info btn-sm dropdown-toggle" style="font-size:.7rem" data-bs-toggle="dropdown"><i class="bi bi-plus-circle me-1"></i>Creează</button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item small" href="#" onclick="createFrom(${t.id},'oferta');return false"><i class="bi bi-file-earmark-text me-2"></i>Ofertă</a></li>
+                        <li><a class="dropdown-item small" href="#" onclick="createFrom(${t.id},'activitate');return false"><i class="bi bi-list-check me-2"></i>Activitate</a></li>
+                    </ul>
+                </div>
+                ${t.oferta_id?'<a href="/admin/oferte/'+t.oferta_id+'" class="badge bg-warning text-dark" style="font-size:.65rem;text-decoration:none"><i class="bi bi-file-text me-1"></i>Ofertă</a>':''}
+                ${t.activitate_id?'<a href="/admin/activitati/'+t.activitate_id+'" class="badge bg-info" style="font-size:.65rem;text-decoration:none"><i class="bi bi-list-check me-1"></i>Activitate</a>':''}
+            </div>
+        </div>`;
+        
+        // Messages
+        let msgs='<div class="ml-d-msgs">';
+        d.mesaje.forEach(m=>{
+            const col=avColor(m.de_la_email||'');
+            const ini=(m.de_la||'?').charAt(0).toUpperCase();
+            const isSent=m.directie==='trimis';
+            msgs+=`<div class="mm${isSent?' sent':''}">
+                <div class="mm-head">
+                    <div class="mm-av" style="background:${col}">${ini}</div>
+                    <div class="mm-info">
+                        <div class="mm-from">${esc(m.de_la)}${isSent?' <span style="font-size:.65rem;color:#61993B">trimis</span>':''}</div>
+                        <div class="mm-to">către: ${esc(m.catre||'')}${m.cc?' · cc: '+esc(m.cc):''}</div>
+                    </div>
+                    <div class="mm-date">${m.data}</div>
+                </div>
+                <div class="mm-body">${m.body_html||esc(m.body_text||m.snippet||'').replace(/\n/g,'<br>')}</div>
+                ${m.atasamente&&m.atasamente.length?'<div class="mm-atts">'+m.atasamente.map((a,i)=>
+                    `<a class="mm-att" href="/api/mail/attachment/${m.id}/${i}" target="_blank"><i class="bi bi-paperclip me-1"></i>${esc(a.name)} <span class="text-muted">(${fmtSize(a.size)})</span></a>`
+                ).join('')+'</div>':''}
+            </div>`;
+        });
+        msgs+='</div>';
+        
+        // Reply
+        const last=d.mesaje.length?d.mesaje[d.mesaje.length-1]:null;
+        let reply='';
+        if(last){
+            const replyTo=last.directie==='primit'?last.de_la_email:(last.catre||'');
+            reply=`<div class="ml-reply">
+                <textarea id="replyBody" rows="2" placeholder="Răspunde..." onfocus="this.rows=4" onblur="if(!this.value)this.rows=2"></textarea>
+                <div class="ml-reply-row">
+                    <button class="btn btn-sm" style="background:#61993B;color:#fff" onclick="sendReply(${t.id},'${esc(replyTo).replace(/'/g,"\\'")}','${esc(t.subiect||'').replace(/'/g,"\\'")}','${last.gmail_msg_id}')"><i class="bi bi-send me-1"></i>Trimite</button>
+                </div>
+            </div>`;
+        }
+        
+        det.innerHTML=h+msgs+reply;
+        
+        const msgsEl=det.querySelector('.ml-d-msgs');
+        if(msgsEl)msgsEl.scrollTop=msgsEl.scrollHeight;
+        
+        loadThreads(document.getElementById('mailSearch').value);
+    });
+}
+
+// ═══ ACTIONS ═══
+function assignThread(tid,uid){
+    fetch(`/api/mail/thread/${tid}/atribuie`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({utilizator_id:uid?parseInt(uid):null})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){
+            loadThreads(document.getElementById('mailSearch').value);
+            if(d.forwarded) showToast('Mail forward-at către '+d.atribuit);
+        }
+    });
+}
+
+function setStatus(tid,status){
+    fetch(`/api/mail/thread/${tid}/status`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({status})
+    }).then(r=>r.json()).then(d=>{if(d.success)loadThreads(document.getElementById('mailSearch').value);});
+}
+
+function createFrom(tid,tip){
+    fetch(`/api/mail/thread/${tid}/creaza`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({tip})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){window.open(d.url,'_blank');openThread(tid);}
+        else alert(d.error||'Eroare');
+    });
+}
+
+function linkClient(tid){
+    const q=prompt('Caută client (nume sau CUI):');
+    if(!q)return;
+    fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r=>r.json()).then(d=>{
+        const cl=d.results.filter(r=>r.type==='client');
+        if(!cl.length){alert('Niciun client găsit');return;}
+        const match=cl[0].url.match(/\/(\d+)/);
+        if(!match)return;
+        fetch(`/api/mail/thread/${tid}/client`,{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({client_id:parseInt(match[1])})
+        }).then(r=>r.json()).then(d=>{if(d.success)openThread(tid);});
+    });
+}
+
+// ═══ SYNC ═══
+function syncMail(deep){
+    const btn=document.getElementById('syncBtn');
+    btn.innerHTML='<i class="bi bi-arrow-clockwise" style="animation:spin .5s linear infinite"></i>';
+    btn.disabled=true;
+    const opts={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deep:!!deep})};
+    fetch('/api/mail/sync',opts).then(r=>r.json()).then(d=>{
+        btn.innerHTML='<i class="bi bi-arrow-clockwise"></i>';btn.disabled=false;
+        if(d.success)loadThreads(document.getElementById('mailSearch').value);
+    }).catch(()=>{btn.innerHTML='<i class="bi bi-arrow-clockwise"></i>';btn.disabled=false;});
+}
+
+// ═══ COMPOSE & REPLY ═══
+function showCompose(){
+    ['composeTo','composeCc','composeSubject','composeBody'].forEach(id=>document.getElementById(id).value='');
+    new bootstrap.Modal(document.getElementById('composeModal')).show();
+}
+
+function sendCompose(){
+    const to=document.getElementById('composeTo').value;
+    const body=document.getElementById('composeBody').value;
+    if(!to||!body){alert('Completează destinatar și mesaj');return;}
+    fetch('/api/mail/send',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({to,cc:document.getElementById('composeCc').value,
+            subject:document.getElementById('composeSubject').value,
+            body:'<div>'+body.replace(/\n/g,'<br>')+'</div>'})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();loadThreads();}
+        else alert(d.error||'Eroare');
+    });
+}
+
+function sendReply(tid,to,subject,replyToId){
+    const body=document.getElementById('replyBody').value;
+    if(!body){alert('Scrie un mesaj');return;}
+    const subj=subject.startsWith('Re:')?subject:'Re: '+subject;
+    fetch('/api/mail/send',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({to,subject:subj,body:'<div>'+body.replace(/\n/g,'<br>')+'</div>',
+            reply_to_gmail_id:replyToId,thread_id:tid})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){document.getElementById('replyBody').value='';setTimeout(()=>openThread(tid),1500);}
+        else alert(d.error||'Eroare');
+    });
+}
+
+// ═══ TOAST ═══
+function showToast(msg){
+    const t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:20px;right:20px;background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:.82rem;z-index:9999;box-shadow:0 2px 12px rgba(0,0,0,.2);transition:opacity .3s';
+    t.innerHTML='<i class="bi bi-check-circle me-2" style="color:#61993B"></i>'+msg;
+    document.body.appendChild(t);
+    setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},3000);
+}
+
+// ═══ INIT ═══
+document.addEventListener('DOMContentLoaded',()=>{
+    loadThreads();
+    syncMail();
+    // Auto-sync every 3 minutes
+    setInterval(()=>syncMail(),180000);
+});
+</script>
+<style>@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}</style>
+{% endblock %}

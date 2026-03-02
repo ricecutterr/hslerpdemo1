@@ -1,0 +1,76 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Editare Activitate' if act else 'Activitate Nouă' }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-kanban me-2"></i>{{ 'Editare Activitate' if act else 'Activitate Nouă' }}</h2>
+</div>
+<div class="bg-white rounded-3 p-4" style="max-width:700px">
+<form method="POST">
+    <div class="mb-3">
+        <label class="form-label fw-bold">Titlu *</label>
+        <input type="text" name="titlu" class="form-control" value="{{ act.titlu if act else '' }}" required placeholder="ex: Verificare calitate comandă CMD-xxx">
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Descriere</label>
+        <textarea name="descriere" class="form-control" rows="3" placeholder="Detalii suplimentare...">{{ act.descriere if act else '' }}</textarea>
+    </div>
+    <div class="row g-3">
+    <div class="col-md-4">
+        <label class="form-label fw-bold">Tip</label>
+        <select name="tip_id" class="form-select">
+            <option value="">-- Fără tip --</option>
+            {% for t in tipuri %}
+            <option value="{{ t.id }}" {{ 'selected' if act and act.tip_id==t.id }}>{{ t.nume }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label fw-bold">Prioritate</label>
+        <select name="prioritate" class="form-select">
+            {% for val, label in [('scazuta','Scăzută'),('normala','Normală'),('ridicata','Ridicată'),('urgenta','Urgentă')] %}
+            <option value="{{ val }}" {{ 'selected' if act and act.prioritate==val else ('selected' if not act and val=='normala' else '') }}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label fw-bold">Deadline</label>
+        <input type="date" name="deadline" class="form-control" value="{{ act.deadline.strftime('%Y-%m-%d') if act and act.deadline else '' }}">
+    </div>
+    </div>
+    <div class="row g-3 mt-1">
+    <div class="col-md-4">
+        <label class="form-label">Comandă Asociată</label>
+        <select name="comanda_id" class="form-select">
+            <option value="">-- Fără --</option>
+            {% for c in comenzi %}
+            <option value="{{ c.id }}" {{ 'selected' if act and act.comanda_id==c.id }}>{{ c.numar }}{% if c.client %} - {{ c.client.nume[:30] }}{% endif %}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Client</label>
+        <select name="client_id" class="form-select">
+            <option value="">-- Fără --</option>
+            {% for cl in clienti %}
+            <option value="{{ cl.id }}" {{ 'selected' if act and act.client_id==cl.id }}>{{ cl.nume[:40] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label fw-bold">Asignat la</label>
+        <select name="asignat_id" class="form-select">
+            <option value="">-- Neasignat --</option>
+            {% for u in utilizatori %}
+            <option value="{{ u.id }}" {{ 'selected' if act and act.asignat_id==u.id }}>{{ u.nume_complet }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    </div>
+
+    <div class="mt-4">
+        <button class="btn btn-hsl me-2"><i class="bi bi-check-lg me-1"></i>{{ 'Salvează' if act else 'Creează Activitate' }}</button>
+        <a href="{{ url_for('activitate_detail', aid=act.id) if act else url_for('activitati_list') }}" class="btn btn-outline-secondary">Anulează</a>
+    </div>
+</form>
+</div>
+{% endblock %}

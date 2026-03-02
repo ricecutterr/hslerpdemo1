@@ -1,0 +1,49 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Editează' if user else 'Utilizator Nou' }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-person me-2"></i>{{ 'Editează Utilizator' if user else 'Utilizator Nou' }}</h2>
+    <a href="/admin/utilizatori" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Înapoi</a>
+</div>
+<div class="bg-white rounded-3 p-4" style="max-width:600px">
+<form method="POST">
+    <div class="row">
+    <div class="col-md-6 mb-3"><label class="form-label">Nume Complet</label>
+        <input name="nume_complet" class="form-control" value="{{ user.nume_complet if user else '' }}" required></div>
+    <div class="col-md-6 mb-3"><label class="form-label">Username</label>
+        <input name="username" class="form-control" value="{{ user.username if user else '' }}" required {{ 'readonly' if user }}></div>
+    </div>
+    <div class="row">
+    <div class="col-md-6 mb-3"><label class="form-label">Email</label>
+        <input name="email" type="email" class="form-control" value="{{ user.email if user else '' }}"></div>
+    <div class="col-md-6 mb-3"><label class="form-label">Telefon</label>
+        <input name="telefon" class="form-control" value="{{ user.telefon if user else '' }}"></div>
+    </div>
+    <div class="row">
+    <div class="col-md-6 mb-3"><label class="form-label">Rol</label>
+        <select name="rol_id" class="form-select">
+        {% for r in roluri %}<option value="{{ r.id }}" {{ 'selected' if user and user.rol_id == r.id }}>{{ r.nume }}</option>{% endfor %}
+        </select></div>
+    <div class="col-md-3 mb-3"><label class="form-label">Comision %</label>
+        <input name="comision_procent" type="number" step="0.01" class="form-control" value="{{ user.comision_procent if user else 0.75 }}"></div>
+    <div class="col-md-3 mb-3 d-flex align-items-end">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="activ" {{ 'checked' if not user or user.activ }}>
+        <label class="form-check-label">Activ</label></div>
+    </div>
+    </div>
+    <div class="mb-3"><label class="form-label">{{ 'Parolă Nouă (gol = neschimbată)' if user else 'Parolă' }}</label>
+        <input name="password" type="password" class="form-control" {{ '' if user else 'required' }} placeholder="{{ '••••••••' if user else '' }}">
+        {% if not user %}<small class="text-muted">Minimim 6 caractere</small>{% endif %}
+    </div>
+    <button type="submit" class="btn btn-hsl w-100">💾 {{ 'Salvează Modificările' if user else 'Creează Utilizator' }}</button>
+</form>
+{% if user and not user.is_admin %}
+<hr>
+<form method="POST" action="/admin/utilizatori/{{ user.id }}/toggle" class="text-center">
+    <button type="submit" class="btn btn-outline-{{ 'danger' if user.activ else 'success' }} btn-sm">
+        {{ '🔒 Dezactivează Cont' if user.activ else '🔓 Activează Cont' }}
+    </button>
+</form>
+{% endif %}
+</div>
+{% endblock %}

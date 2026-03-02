@@ -1,0 +1,230 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ picking.numar }} - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.pick-line{padding:10px;border:2px solid #e9ecef;border-radius:8px;margin-bottom:8px;transition:all .3s}
+.pick-line.done{border-color:#198754;background:#f0fdf4}
+.pick-line.active-scan{border-color:#61993B;background:#fffde7;box-shadow:0 0 12px rgba(97,153,59,.3)}
+.pick-line.lipsa{border-color:#dc3545;background:#fff5f5}
+.scan-box{background:linear-gradient(135deg,#1D2F34,#243d44);color:white;border-radius:10px;padding:16px}
+.scan-input{font-size:1.3rem;font-weight:bold;border:3px solid #61993B;border-radius:8px;text-align:center}
+.scan-input:focus{box-shadow:0 0 0 4px rgba(97,153,59,.4)}
+.step-badge{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem}
+.step-active{background:#61993B;color:white}
+.step-done{background:#198754;color:white}
+.step-pending{background:#dee2e6;color:#6c757d}
+</style>
+{% endblock %}
+{% block content %}
+{% set done, total = picking.progres %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-cart-check me-2"></i>{{ picking.numar }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            <span class="badge bg-{% if picking.status=='nou' %}info{% elif picking.status=='in_pregatire' %}warning text-dark{% elif picking.status=='complet' %}success{% elif picking.status=='livrat' %}primary{% else %}secondary{% endif %} fs-6">{{ picking.status_display }}</span>
+            <span class="badge bg-light text-dark fs-6">Comandă: <a href="/admin/comenzi/{{ picking.comanda_id }}">{{ picking.comanda.numar }}</a></span>
+            <span class="badge bg-light text-dark fs-6" id="progBadge">{{ done }}/{{ total }} preluate</span>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        {% if picking.status == 'nou' %}
+        <button class="btn btn-warning" onclick="startPicking()"><i class="bi bi-play me-1"></i>Începe Picking</button>
+        {% endif %}
+        {% if picking.status == 'complet' %}
+        <button class="btn btn-success" onclick="genereazaNota()"><i class="bi bi-file-earmark-text me-1"></i>Generează Notă Livrare</button>
+        {% endif %}
+        {% if picking.nota_livrare %}
+        <a href="/admin/wms/nota-livrare/{{ picking.nota_livrare.id }}" class="btn btn-primary"><i class="bi bi-file-text me-1"></i>Notă Livrare</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+<!-- LEFT -->
+<div class="col-md-4">
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">Detalii</h6>
+        <p><strong>Comandă:</strong> {{ picking.comanda.numar }}</p>
+        <p><strong>Client:</strong> {{ picking.comanda.client.nume if picking.comanda.client else '-' }}</p>
+        <p><strong>Creat:</strong> {{ picking.data_creare.strftime('%d.%m.%Y %H:%M') }}</p>
+        <p><strong>Creat de:</strong> {{ picking.creat_de.nume_complet if picking.creat_de else '-' }}</p>
+        {% if total > 0 %}
+        <div class="progress mt-2" style="height:20px">
+            <div class="progress-bar bg-{% if done==total %}success{% else %}warning{% endif %}" id="progBar" style="width:{{ (done/total*100)|int }}%">{{ done }}/{{ total }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if picking.status == 'in_pregatire' %}
+    <div class="scan-box">
+        <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-2"></i>Scanner Picking</h6>
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="step-badge step-active" id="step1">1</div><small>Produs</small>
+            <i class="bi bi-arrow-right"></i>
+            <div class="step-badge step-pending" id="step2">2</div><small>Celulă</small>
+            <i class="bi bi-arrow-right"></i>
+            <div class="step-badge step-pending" id="step3">3</div><small>✓</small>
+        </div>
+        <input id="scanInput" class="form-control scan-input mb-3" placeholder="Scanează..." autofocus autocomplete="off">
+        <div id="scanStatus" class="mb-2">
+            <span class="opacity-75"><i class="bi bi-arrow-up me-1"></i>Scanează produsul de preluat</span>
+        </div>
+        <div id="scanDetails" style="display:none">
+            <div class="border rounded p-2" style="background:rgba(255,255,255,.1)">
+                <div class="small"><strong>Produs:</strong> <span id="sdProd">-</span></div>
+                <div class="small"><strong>Celulă sugerată:</strong> <span id="sdCelSug">-</span></div>
+                <div class="small"><strong>Celulă scanată:</strong> <span id="sdCelScan">-</span></div>
+                <div class="small mt-1"><strong>Cantitate:</strong>
+                    <input id="sdCant" type="number" step="1" min="1" class="form-control form-control-sm d-inline" style="width:80px;background:rgba(255,255,255,.9);color:#000">
+                </div>
+                <button class="btn btn-success btn-sm w-100 mt-2" id="btnConfirm" onclick="confirmPick()" style="display:none">
+                    <i class="bi bi-check-lg me-1"></i>Confirmă Preluare
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- RIGHT -->
+<div class="col-md-8"><div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold mb-3">Linii de Preluat</h6>
+    {% for l in picking.linii %}
+    <div class="pick-line {% if l.preluata %}done{% elif l.lipsa > 0 %}lipsa{% endif %}"
+         id="pl-{{ l.id }}" data-lid="{{ l.id }}" data-cod="{{ l.cod_intern }}"
+         data-cant="{{ l.cantitate_ceruta }}" data-celula="{{ l.celula_sursa.cod if l.celula_sursa else '' }}"
+         data-celulaid="{{ l.celula_sursa_id or '' }}" data-done="{{ '1' if l.preluata else '0' }}">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                {% if l.preluata %}
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                {% elif l.lipsa > 0 %}
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                {% else %}
+                <i class="bi bi-circle text-muted fs-5" id="icon-{{ l.id }}"></i>
+                {% endif %}
+                <div>
+                    <strong>{{ l.cod_intern }}</strong>
+                    <span class="small text-muted">{{ l.denumire or '' }}</span>
+                </div>
+            </div>
+            <div class="text-end">
+                <strong>{{ l.cantitate_ceruta|int }} {{ l.um }}</strong>
+            </div>
+        </div>
+        <div class="mt-1 d-flex gap-2 align-items-center flex-wrap">
+            {% if l.celula_sursa %}
+            <span class="badge bg-light text-dark">📍 {{ l.celula_sursa.cod }} ({{ l.stoc_disponibil|int }} disp.)</span>
+            {% else %}
+            <span class="badge bg-danger">⚠ Fără stoc pe celule</span>
+            {% endif %}
+            {% if l.preluata %}
+            <span class="badge bg-success">✓ Preluat {{ l.cantitate_preluata|int }} din {{ l.celula_efectiva.cod if l.celula_efectiva else 'N/A' }}</span>
+            {% endif %}
+            {% if l.lipsa > 0 and not l.preluata %}
+            <span class="badge bg-danger">Lipsă: {{ l.lipsa|int }}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script>
+const CELULE = {};
+{% for c in celule %}CELULE['{{ c.cod }}'] = {{ c.id }};CELULE['{{ c.barcode or c.cod }}'] = {{ c.id }};{% endfor %}
+
+let scanState = 'product';
+let currentLine = null;
+let currentCelulaId = null;
+let currentCelulaCod = '';
+const inp = document.getElementById('scanInput');
+if(inp) inp.addEventListener('keypress', e=>{if(e.key==='Enter'){e.preventDefault();processScan();}});
+
+function processScan(){
+    const val = inp.value.trim(); inp.value = '';
+    if(!val) return;
+
+    if(scanState === 'product'){
+        const lines = document.querySelectorAll('.pick-line[data-done="0"]');
+        let found = null;
+        lines.forEach(el => { if(el.dataset.cod === val) found = el; });
+        if(!found){ setStatus('❌ "'+val+'" nu are linii de preluat','danger'); return; }
+        document.querySelectorAll('.pick-line').forEach(el => el.classList.remove('active-scan'));
+        found.classList.add('active-scan');
+        found.scrollIntoView({behavior:'smooth',block:'center'});
+        currentLine = found;
+        document.getElementById('sdProd').textContent = found.dataset.cod;
+        document.getElementById('sdCelSug').textContent = found.dataset.celula || 'N/A';
+        document.getElementById('sdCelScan').textContent = 'Așteaptă scan...';
+        document.getElementById('sdCant').value = parseInt(found.dataset.cant);
+        document.getElementById('scanDetails').style.display = '';
+        document.getElementById('btnConfirm').style.display = 'none';
+        setStep(2); scanState = 'cell';
+        setStatus('✅ Produs găsit! Scanează celula din care preiei.','success');
+    } else if(scanState === 'cell'){
+        const cid = CELULE[val];
+        if(!cid){ setStatus('❌ Celula "'+val+'" nu există','danger'); return; }
+        currentCelulaId = cid; currentCelulaCod = val;
+        document.getElementById('sdCelScan').textContent = val;
+        document.getElementById('btnConfirm').style.display = '';
+        setStep(3); scanState = 'confirm';
+        const sug = currentLine.dataset.celula;
+        if(sug && sug !== val) setStatus('⚠️ Celulă diferită de sugerată ('+sug+'). Verifică!','danger');
+        else setStatus('✅ Celulă: '+val+'. Confirmă preluarea.','success');
+    }
+    inp.focus();
+}
+
+function confirmPick(){
+    if(!currentLine) return;
+    const lid = currentLine.dataset.lid;
+    const cant = parseFloat(document.getElementById('sdCant').value) || 0;
+    if(cant <= 0) return alert('Cantitate invalidă');
+
+    fetch('/api/wms/picking/linie/'+lid+'/prelua',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cantitate:cant,celula_id:currentCelulaId})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){
+            currentLine.classList.remove('active-scan','lipsa');
+            currentLine.classList.add('done');
+            currentLine.dataset.done = '1';
+            const icon = document.getElementById('icon-'+lid);
+            if(icon) icon.className = 'bi bi-check-circle-fill text-success fs-5';
+            // Update progress
+            const bar = document.getElementById('progBar');
+            const badge = document.getElementById('progBadge');
+            if(bar) bar.style.width = ((d.preluate/d.total)*100)+'%';
+            if(bar) bar.textContent = d.preluate+'/'+d.total;
+            if(badge) badge.textContent = d.preluate+'/'+d.total+' preluate';
+            if(d.preluate===d.total && bar) bar.classList.replace('bg-warning','bg-success');
+            resetScan();
+            if(d.picking_status==='complet'){
+                setTimeout(()=>{alert('✅ Picking complet! Poți genera Nota de Livrare.');location.reload();},500);
+            } else setStatus('✅ Preluat '+cant+' din '+currentCelulaCod+'. Scanează următorul.','success');
+        } else alert(d.error);
+    });
+}
+
+function resetScan(){
+    scanState='product';currentLine=null;currentCelulaId=null;currentCelulaCod='';
+    document.getElementById('scanDetails').style.display='none';
+    setStep(1); inp.focus();
+}
+function setStep(n){for(let i=1;i<=3;i++){document.getElementById('step'+i).className='step-badge '+(i<n?'step-done':i===n?'step-active':'step-pending');}}
+function setStatus(msg,type){document.getElementById('scanStatus').innerHTML='<span class="'+(type==='danger'?'text-danger':'text-success')+'">'+msg+'</span>';}
+
+function startPicking(){
+    fetch('/api/wms/picking/{{ picking.id }}/start',{method:'POST',headers:{'Content-Type':'application/json'}})
+    .then(r=>r.json()).then(d=>{if(d.success)location.reload();else alert(d.error);});
+}
+function genereazaNota(){
+    if(!confirm('Generează Nota de Livrare?')) return;
+    fetch('/api/wms/picking/{{ picking.id }}/nota-livrare',{method:'POST',headers:{'Content-Type':'application/json'}})
+    .then(r=>r.json()).then(d=>{
+        if(d.success){alert('Notă de Livrare generată: '+d.numar);location.reload();}
+        else alert(d.error);
+    });
+}
+</script>{% endblock %}

@@ -1,0 +1,194 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Raport Marjă - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.marja-positive{color:#198754}.marja-negative{color:#dc3545}
+.summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.summary-card{background:#fff;border-radius:8px;padding:14px;text-align:center}
+.summary-card .val{font-size:1.5rem;font-weight:800;line-height:1}
+.summary-card .lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;margin-top:4px}
+.view-tabs .nav-link{color:#6c757d;font-weight:600}
+.view-tabs .nav-link.active{color:#1D2F34;border-bottom:3px solid #61993B}
+.pct-bar{height:6px;border-radius:3px;background:#e9ecef;width:80px;display:inline-block;vertical-align:middle}
+.pct-fill{height:100%;border-radius:3px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-graph-up-arrow me-2"></i>Raport Marjă & Profitabilitate</h2>
+</div>
+
+<!-- Period filter -->
+<div class="bg-white rounded-3 p-2 px-3 mb-3 d-flex align-items-center gap-2 flex-wrap">
+    <i class="bi bi-calendar3 text-muted"></i>
+    <strong class="small me-2" style="color:#1D2F34">{{ p_label }}</strong>
+    <div class="btn-group btn-group-sm">
+        <a href="?period=luna_curenta&view={{ view_by }}&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}" class="btn btn-{% if period=='luna_curenta' %}hsl{% else %}outline-secondary{% endif %}">Luna curentă</a>
+        <a href="?period=ultima_luna&view={{ view_by }}&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}" class="btn btn-{% if period=='ultima_luna' %}hsl{% else %}outline-secondary{% endif %}">Luna trecută</a>
+        <a href="?period=an_curent&view={{ view_by }}&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}" class="btn btn-{% if period=='an_curent' %}hsl{% else %}outline-secondary{% endif %}">An curent</a>
+        <a href="?period=an_trecut&view={{ view_by }}&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}" class="btn btn-{% if period=='an_trecut' %}hsl{% else %}outline-secondary{% endif %}">An trecut</a>
+    </div>
+    <div class="d-flex align-items-center gap-1 ms-2">
+        <input type="date" id="pStart" class="form-control form-control-sm" style="width:130px" value="{{ p_start }}">
+        <span class="text-muted small">–</span>
+        <input type="date" id="pEnd" class="form-control form-control-sm" style="width:130px" value="{{ p_end }}">
+        <button class="btn btn-hsl btn-sm" onclick="applyCustom()"><i class="bi bi-search"></i></button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-3 p-2 px-3 mb-3 d-flex align-items-center gap-3 flex-wrap">
+    <div class="d-flex align-items-center gap-1">
+        <label class="small fw-bold">Client:</label>
+        <select id="fClient" class="form-select form-select-sm" style="width:180px" onchange="applyFilters()">
+            <option value="">Toți</option>
+            {% for c in clienti_all %}<option value="{{ c.id }}" {% if filter_client == c.id|string %}selected{% endif %}>{{ c.nume[:30] }}</option>{% endfor %}
+        </select>
+    </div>
+    {% if not current_user.doar_proprii %}
+    <div class="d-flex align-items-center gap-1">
+        <label class="small fw-bold">Agent:</label>
+        <select id="fAgent" class="form-select form-select-sm" style="width:180px" onchange="applyFilters()">
+            <option value="">Toți</option>
+            {% for a in agenti_all %}<option value="{{ a.id }}" {% if filter_agent == a.id|string %}selected{% endif %}>{{ a.nume_complet }}</option>{% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <div class="d-flex align-items-center gap-1">
+        <label class="small fw-bold">Produs:</label>
+        <input id="fProdus" class="form-control form-control-sm" style="width:140px" placeholder="Cod..." value="{{ filter_produs }}" onkeypress="if(event.key==='Enter')applyFilters()">
+    </div>
+</div>
+
+<!-- Summary cards -->
+<div class="summary-cards">
+    <div class="summary-card">
+        <div class="val" style="color:#0d6efd">{{ '{:,.0f}'.format(totals.vanzare) }}€</div>
+        <div class="lbl">Total Vânzări</div>
+    </div>
+    <div class="summary-card">
+        <div class="val" style="color:#fd7e14">{{ '{:,.0f}'.format(totals.cost) }}€</div>
+        <div class="lbl">Cost Achiziție</div>
+    </div>
+    <div class="summary-card">
+        <div class="val {% if totals.marja >= 0 %}marja-positive{% else %}marja-negative{% endif %}">{{ '{:,.0f}'.format(totals.marja) }}€</div>
+        <div class="lbl">Marjă Totală</div>
+    </div>
+    <div class="summary-card">
+        <div class="val {% if totals.marja_pct >= 0 %}marja-positive{% else %}marja-negative{% endif %}">{{ '{:.1f}'.format(totals.marja_pct) }}%</div>
+        <div class="lbl">Marjă Medie</div>
+    </div>
+</div>
+
+<!-- View tabs -->
+<ul class="nav view-tabs mb-3">
+    <li class="nav-item"><a class="nav-link {% if view_by=='comenzi' %}active{% endif %}" href="?period={{ period }}&start={{ p_start }}&end={{ p_end }}&view=comenzi&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}"><i class="bi bi-cart me-1"></i>Per Comandă</a></li>
+    <li class="nav-item"><a class="nav-link {% if view_by=='produse' %}active{% endif %}" href="?period={{ period }}&start={{ p_start }}&end={{ p_end }}&view=produse&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}"><i class="bi bi-box me-1"></i>Per Produs</a></li>
+    <li class="nav-item"><a class="nav-link {% if view_by=='clienti' %}active{% endif %}" href="?period={{ period }}&start={{ p_start }}&end={{ p_end }}&view=clienti&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}"><i class="bi bi-people me-1"></i>Per Client</a></li>
+    {% if not current_user.doar_proprii %}
+    <li class="nav-item"><a class="nav-link {% if view_by=='agenti' %}active{% endif %}" href="?period={{ period }}&start={{ p_start }}&end={{ p_end }}&view=agenti&client_id={{ filter_client }}&agent_id={{ filter_agent }}&produs={{ filter_produs }}"><i class="bi bi-person-badge me-1"></i>Per Agent</a></li>
+    {% endif %}
+</ul>
+
+<!-- Data table -->
+<div class="bg-white rounded-3 p-3">
+{% if view_by == 'comenzi' %}
+<table class="table table-hsl table-hover mb-0">
+<thead><tr><th>Comandă</th><th>Client</th><th>Agent</th><th>Data</th><th class="text-end">Vânzare</th><th class="text-end">Cost</th><th class="text-end">Marjă</th><th class="text-end">Marjă %</th></tr></thead>
+<tbody>
+{% for r in raport_comenzi %}
+<tr onclick="location.href='/admin/comenzi/{{ r.cmd.id }}'" style="cursor:pointer">
+    <td><strong>{{ r.cmd.numar }}</strong></td>
+    <td>{{ r.cmd.client.nume[:25] if r.cmd.client else '-' }}</td>
+    <td class="small">{{ r.cmd.creat_de.nume_complet[:20] if r.cmd.creat_de else '-' }}</td>
+    <td class="small">{{ r.cmd.data_comanda.strftime('%d.%m.%Y') if r.cmd.data_comanda else '' }}</td>
+    <td class="text-end">{{ '{:,.0f}'.format(r.vanzare) }}€</td>
+    <td class="text-end text-muted">{{ '{:,.0f}'.format(r.cost) }}€</td>
+    <td class="text-end fw-bold {% if r.marja >= 0 %}marja-positive{% else %}marja-negative{% endif %}">{{ '{:,.0f}'.format(r.marja) }}€</td>
+    <td class="text-end">
+        <span class="{% if r.marja_pct >= 20 %}marja-positive{% elif r.marja_pct >= 0 %}text-warning{% else %}marja-negative{% endif %} fw-bold">{{ '{:.1f}'.format(r.marja_pct) }}%</span>
+        <div class="pct-bar ms-1"><div class="pct-fill" style="width:{{ [r.marja_pct, 100]|min|int }}%;background:{% if r.marja_pct >= 20 %}#198754{% elif r.marja_pct >= 0 %}#ffc107{% else %}#dc3545{% endif %}"></div></div>
+    </td>
+</tr>
+{% else %}<tr><td colspan="8" class="text-center text-muted py-3">Nicio comandă în această perioadă</td></tr>{% endfor %}
+</tbody></table>
+
+{% elif view_by == 'produse' %}
+<table class="table table-hsl table-hover mb-0">
+<thead><tr><th>Cod</th><th>Denumire</th><th class="text-end">Cantitate</th><th class="text-end">Vânzare</th><th class="text-end">Cost</th><th class="text-end">Marjă</th><th class="text-end">Marjă %</th></tr></thead>
+<tbody>
+{% for p in produse_sorted %}
+{% set m = p.vanzare - p.cost %}
+{% set mp = (m / p.vanzare * 100) if p.vanzare else 0 %}
+<tr>
+    <td><code class="fw-bold">{{ p.cod }}</code></td>
+    <td>{{ p.denumire[:35] }}</td>
+    <td class="text-end">{{ p.cant|int }}</td>
+    <td class="text-end">{{ '{:,.0f}'.format(p.vanzare) }}€</td>
+    <td class="text-end text-muted">{{ '{:,.0f}'.format(p.cost) }}€</td>
+    <td class="text-end fw-bold {% if m >= 0 %}marja-positive{% else %}marja-negative{% endif %}">{{ '{:,.0f}'.format(m) }}€</td>
+    <td class="text-end">
+        <span class="{% if mp >= 20 %}marja-positive{% elif mp >= 0 %}text-warning{% else %}marja-negative{% endif %} fw-bold">{{ '{:.1f}'.format(mp) }}%</span>
+    </td>
+</tr>
+{% else %}<tr><td colspan="7" class="text-center text-muted py-3">Niciun produs</td></tr>{% endfor %}
+</tbody></table>
+
+{% elif view_by == 'clienti' %}
+<table class="table table-hsl table-hover mb-0">
+<thead><tr><th>Client</th><th class="text-end">Comenzi</th><th class="text-end">Vânzare</th><th class="text-end">Cost</th><th class="text-end">Marjă</th><th class="text-end">Marjă %</th></tr></thead>
+<tbody>
+{% for c in clienti_sorted %}
+{% set m = c.vanzare - c.cost %}
+{% set mp = (m / c.vanzare * 100) if c.vanzare else 0 %}
+<tr>
+    <td><strong>{{ c.nume }}</strong></td>
+    <td class="text-end">{{ c.comenzi }}</td>
+    <td class="text-end">{{ '{:,.0f}'.format(c.vanzare) }}€</td>
+    <td class="text-end text-muted">{{ '{:,.0f}'.format(c.cost) }}€</td>
+    <td class="text-end fw-bold {% if m >= 0 %}marja-positive{% else %}marja-negative{% endif %}">{{ '{:,.0f}'.format(m) }}€</td>
+    <td class="text-end"><span class="{% if mp >= 20 %}marja-positive{% elif mp >= 0 %}text-warning{% else %}marja-negative{% endif %} fw-bold">{{ '{:.1f}'.format(mp) }}%</span></td>
+</tr>
+{% else %}<tr><td colspan="6" class="text-center text-muted py-3">Niciun client</td></tr>{% endfor %}
+</tbody></table>
+
+{% elif view_by == 'agenti' %}
+<table class="table table-hsl table-hover mb-0">
+<thead><tr><th>Agent</th><th class="text-end">Comenzi</th><th class="text-end">Vânzare</th><th class="text-end">Cost</th><th class="text-end">Marjă</th><th class="text-end">Marjă %</th></tr></thead>
+<tbody>
+{% for a in agenti_sorted %}
+{% set m = a.vanzare - a.cost %}
+{% set mp = (m / a.vanzare * 100) if a.vanzare else 0 %}
+<tr>
+    <td><strong>{{ a.nume }}</strong></td>
+    <td class="text-end">{{ a.comenzi }}</td>
+    <td class="text-end">{{ '{:,.0f}'.format(a.vanzare) }}€</td>
+    <td class="text-end text-muted">{{ '{:,.0f}'.format(a.cost) }}€</td>
+    <td class="text-end fw-bold {% if m >= 0 %}marja-positive{% else %}marja-negative{% endif %}">{{ '{:,.0f}'.format(m) }}€</td>
+    <td class="text-end"><span class="{% if mp >= 20 %}marja-positive{% elif mp >= 0 %}text-warning{% else %}marja-negative{% endif %} fw-bold">{{ '{:.1f}'.format(mp) }}%</span></td>
+</tr>
+{% else %}<tr><td colspan="6" class="text-center text-muted py-3">Niciun agent</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+</div>
+
+<script>
+function applyCustom(){
+    const s=document.getElementById('pStart').value, e=document.getElementById('pEnd').value;
+    if(s&&e) updateUrl({period:'custom',start:s,end:e});
+}
+function applyFilters(){
+    const params = {
+        client_id: document.getElementById('fClient')?.value || '',
+        agent_id: document.getElementById('fAgent')?.value || '',
+        produs: document.getElementById('fProdus')?.value || ''
+    };
+    updateUrl(params);
+}
+function updateUrl(extra){
+    const u = new URL(location.href);
+    for(const[k,v] of Object.entries(extra)) u.searchParams.set(k,v);
+    location.href = u.toString();
+}
+</script>
+{% endblock %}

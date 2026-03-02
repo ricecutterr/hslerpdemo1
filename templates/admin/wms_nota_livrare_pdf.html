@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>
+body{font-family:Arial,sans-serif;font-size:12px;margin:20px}
+h1{color:#1D2F34;font-size:22px;margin:0}
+h2{color:#61993B;font-size:14px;margin:5px 0 15px}
+.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #61993B;padding-bottom:10px;margin-bottom:15px}
+.header-right{text-align:right}
+table{width:100%;border-collapse:collapse;margin:10px 0}
+th{background:#1D2F34;color:white;padding:8px;text-align:left;font-size:11px}
+td{padding:6px 8px;border-bottom:1px solid #ddd;font-size:11px}
+tr:nth-child(even){background:#f9f9f9}
+.info-box{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:10px;margin-bottom:10px}
+.info-label{color:#666;font-size:10px;text-transform:uppercase}
+.footer{margin-top:30px;padding-top:10px;border-top:1px solid #ddd;display:flex;justify-content:space-between}
+.sign-box{border:1px solid #ccc;border-radius:4px;padding:8px;width:45%;text-align:center}
+.sign-box .label{font-size:10px;color:#666;margin-bottom:30px}
+</style>
+</head>
+<body>
+<div class="header">
+    <div>
+        <h1>NOTĂ DE LIVRARE</h1>
+        <h2>{{ nota.numar }}</h2>
+    </div>
+    <div class="header-right">
+        <strong>HSL Solutions SRL</strong><br>
+        <span style="font-size:10px;color:#666">Data: {{ nota.data_creare.strftime('%d.%m.%Y') }}</span>
+    </div>
+</div>
+
+<div class="info-box">
+    <div class="info-label">Client</div>
+    <strong>{{ client.nume if client else '-' }}</strong><br>
+    {% if client and client.cui %}CUI: {{ client.cui }}<br>{% endif %}
+    {% if nota.adresa_livrare %}{{ nota.adresa_livrare }}
+    {% elif client and client.adresa %}{{ client.adresa }}{% if client.oras %}, {{ client.oras }}{% endif %}{% if client.judet %}, {{ client.judet }}{% endif %}{% endif %}
+</div>
+
+<div class="info-box">
+    <div class="info-label">Referință</div>
+    Comandă: <strong>{{ comanda.numar }}</strong>
+</div>
+
+<table>
+<thead><tr><th style="width:5%">Nr.</th><th style="width:20%">Cod</th><th>Denumire</th><th style="width:10%">UM</th><th style="width:12%">Cantitate</th></tr></thead>
+<tbody>
+{% for l in picking.linii %}
+<tr>
+    <td>{{ loop.index }}</td>
+    <td><strong>{{ l.cod_intern }}</strong></td>
+    <td>{{ l.denumire or '' }}</td>
+    <td>{{ l.um }}</td>
+    <td><strong>{{ l.cantitate_preluata|int }}</strong></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+{% if nota.observatii %}
+<div class="info-box">
+    <div class="info-label">Observații</div>
+    {{ nota.observatii }}
+</div>
+{% endif %}
+
+<div class="footer">
+    <div class="sign-box">
+        <div class="label">Predat</div>
+        <div style="height:40px"></div>
+        <div style="border-top:1px solid #999;padding-top:4px;font-size:10px">Semnătură / Ștampilă</div>
+    </div>
+    <div class="sign-box">
+        <div class="label">Primit</div>
+        <div style="height:40px"></div>
+        <div style="border-top:1px solid #999;padding-top:4px;font-size:10px">Semnătură / Ștampilă</div>
+    </div>
+</div>
+</body></html>

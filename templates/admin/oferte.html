@@ -1,0 +1,69 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Oferte - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.filter-bar{background:#fff;border-radius:10px;padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-file-earmark-text me-2"></i>Oferte</h2>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-secondary fs-6">{{ oferte|length }} oferte</span>
+        <a href="/configurator" class="btn btn-hsl"><i class="bi bi-gear me-2"></i>Ofertă Nouă</a>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <i class="bi bi-funnel text-muted"></i>
+    <div class="btn-group btn-group-sm">
+        <a href="/admin/oferte?client_id={{ client_filter }}&period={{ period_filter }}" class="btn btn-{% if not status_filter %}hsl{% else %}outline-secondary{% endif %}">Toate</a>
+        {% for code,label in [('draft','Draft'),('trimisa','Trimise'),('acceptata','Acceptate'),('comanda','Convertite'),('refuzata','Refuzate')] %}
+        <a href="/admin/oferte?status={{ code }}&client_id={{ client_filter }}&period={{ period_filter }}" class="btn btn-{% if status_filter==code %}hsl{% else %}outline-secondary{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    <span class="text-muted">|</span>
+    <select class="form-select form-select-sm" style="max-width:170px" onchange="applyFilter('client_id',this.value)">
+        <option value="">Toți clienții</option>
+        {% for cl in clienti %}<option value="{{ cl.id }}" {% if client_filter==cl.id|string %}selected{% endif %}>{{ cl.nume[:25] }}</option>{% endfor %}
+    </select>
+    <div class="btn-group btn-group-sm">
+        <a href="/admin/oferte?status={{ status_filter }}&client_id={{ client_filter }}" class="btn btn-outline-secondary btn-sm">Toate</a>
+        <a href="/admin/oferte?status={{ status_filter }}&client_id={{ client_filter }}&period=saptamana" class="btn btn-{% if period_filter=='saptamana' %}hsl{% else %}outline-secondary{% endif %} btn-sm">7 zile</a>
+        <a href="/admin/oferte?status={{ status_filter }}&client_id={{ client_filter }}&period=luna" class="btn btn-{% if period_filter=='luna' %}hsl{% else %}outline-secondary{% endif %} btn-sm">Luna</a>
+        <a href="/admin/oferte?status={{ status_filter }}&client_id={{ client_filter }}&period=an" class="btn btn-{% if period_filter=='an' %}hsl{% else %}outline-secondary{% endif %} btn-sm">An</a>
+    </div>
+    <span class="text-muted">|</span>
+    <div class="d-flex align-items-center gap-1">
+        <input type="date" id="dateStart" class="form-control form-control-sm" style="width:130px" value="{{ date_start or '' }}">
+        <span class="text-muted small">–</span>
+        <input type="date" id="dateEnd" class="form-control form-control-sm" style="width:130px" value="{{ date_end or '' }}">
+        <button class="btn btn-hsl btn-sm" onclick="applyDates()"><i class="bi bi-search"></i></button>
+    </div>
+    {% if status_filter or client_filter or period_filter or date_start %}
+    <a href="/admin/oferte" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+    {% endif %}
+</div>
+
+<div class="bg-white rounded-3 p-3">
+    <table class="table table-hsl table-hover mb-0">
+    <thead><tr><th>Nr. Ofertă</th><th>Client</th><th>Agent</th><th>Data</th><th class="text-end">Total</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for o in oferte %}
+    <tr onclick="location.href='/admin/oferte/{{ o.id }}'" style="cursor:pointer">
+        <td><strong>{{ o.numar_display }}</strong></td>
+        <td>{% if o.client %}{{ o.client.nume[:25] }}{% else %}-{% endif %}</td>
+        <td class="small text-muted">{{ o.creat_de.nume_complet[:15] if o.creat_de else '-' }}</td>
+        <td class="small">{{ o.data_oferta.strftime('%d.%m.%Y') if o.data_oferta else '' }}</td>
+        <td class="text-end fw-bold">{{ '{:,.0f}'.format(o.total) }} {{ o.moneda }}</td>
+        <td><span class="badge bg-{% if o.status=='draft' %}secondary{% elif o.status=='trimisa' %}info{% elif o.status=='acceptata' %}success{% elif o.status=='comanda' %}primary{% elif o.status=='refuzata' %}danger{% elif o.status=='expirata' %}warning text-dark{% else %}secondary{% endif %}">{{ o.status|title }}</span></td>
+    </tr>{% else %}
+    <tr><td colspan="6" class="text-center text-muted py-3">Nicio ofertă găsită</td></tr>
+    {% endfor %}
+    </tbody></table>
+</div>
+<script>
+function applyFilter(key, val){const u=new URL(location.href);if(val)u.searchParams.set(key,val);else u.searchParams.delete(key);u.searchParams.delete('date_start');u.searchParams.delete('date_end');location.href=u.toString();}
+function applyDates(){const s=document.getElementById('dateStart').value,e=document.getElementById('dateEnd').value;if(!s||!e)return alert('Selectează ambele date');const u=new URL(location.href);u.searchParams.set('date_start',s);u.searchParams.set('date_end',e);u.searchParams.delete('period');location.href=u.toString();}
+</script>
+{% endblock %}

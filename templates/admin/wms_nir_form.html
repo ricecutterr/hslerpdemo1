@@ -1,0 +1,263 @@
+{% extends 'admin/layout.html' %}
+{% block title %}NIR Nou - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.nir-line{background:#fafbfc;border:1px solid #e9ecef;border-radius:8px;padding:10px;margin-bottom:8px}
+.nir-line .form-control,.nir-line .form-select{font-size:.85rem}
+.suggest-found{background:#d4edda !important;border-color:#28a745 !important}
+.prod-pick{cursor:pointer;font-size:.85rem;border:2px solid #61993B;border-radius:6px;padding:4px 8px;background:#f0fdf4;min-height:36px;display:flex;align-items:center}
+.prod-pick:hover{background:#e0f5d0}
+.prod-pick .placeholder{color:#999}
+/* Modal search */
+#prodModal .prod-row{padding:8px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+#prodModal .prod-row:hover{background:#f0fdf4}
+#prodModal .prod-row .cod{font-weight:700;color:#1D2F34;min-width:140px}
+#prodModal .prod-row .den{color:#555;font-size:.85rem;flex:1}
+#prodModal .prod-row.variant{padding-left:24px;border-left:3px solid #61993B}
+#prodModal .search-box{border:2px solid #61993B;border-radius:8px;font-size:1rem;padding:8px 12px}
+#prodModal .search-box:focus{box-shadow:0 0 0 3px rgba(97,153,59,.3)}
+#prodModal .results{max-height:400px;overflow-y:auto}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-clipboard-check me-2"></i>NIR Nou (Notă Intrare-Recepție)</h2>
+</div>
+<form method="POST" id="nirForm">
+<div class="bg-white rounded-3 p-3 mb-3">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Furnizor *</label>
+            <select name="furnizor_id" id="furnizorId" class="form-select" required>
+                <option value="">-- Selectează --</option>
+                {% for f in furnizori %}<option value="{{ f.id }}">{{ f.nume }}{% if f.cui %} ({{ f.cui }}){% endif %}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Nr. Factură Furnizor</label>
+            <input name="numar_factura" class="form-control" placeholder="ex: FV-2026-001">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Data Factură</label>
+            <input name="data_factura" type="date" class="form-control">
+        </div>
+    </div>
+    <div class="mt-2">
+        <label class="form-label">Observații</label>
+        <textarea name="observatii" class="form-control" rows="1"></textarea>
+    </div>
+</div>
+
+<div class="bg-white rounded-3 p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">Linii Recepție</h6>
+        <button type="button" class="btn btn-hsl btn-sm" onclick="addLine()"><i class="bi bi-plus-lg me-1"></i>Adaugă Linie</button>
+    </div>
+    <div id="lines"></div>
+    <div class="mt-3 text-end">
+        <strong>TOTAL ACHIZIȚIE: <span id="totalAch" class="fs-5" style="color:#61993B">0.00€</span></strong>
+    </div>
+</div>
+
+<div class="d-flex gap-2">
+    <button type="submit" class="btn btn-hsl btn-lg">💾 Salvează NIR</button>
+    <a href="/admin/wms/niruri" class="btn btn-outline-secondary">Anulează</a>
+</div>
+</form>
+
+<!-- PRODUCT SEARCH MODAL -->
+<div class="modal fade" id="prodModal" tabindex="-1">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+    <div class="modal-header" style="background:#1D2F34;color:white">
+        <h5 class="modal-title"><i class="bi bi-search me-2"></i>Caută Produs</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body p-3">
+        <input id="prodSearch" class="form-control search-box mb-3" placeholder="Caută după cod sau denumire..." autofocus>
+        <div class="small text-muted mb-2">
+            <span class="badge bg-light text-dark">Produs</span> = produs de bază &nbsp;
+            <span class="badge" style="background:#e8f5e9;color:#2e7d32;border-left:3px solid #61993B">Variantă</span> = variantă specifică
+        </div>
+        <div id="prodResults" class="results border rounded"></div>
+        <div class="mt-2 text-center">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectCustom()">
+                <i class="bi bi-pencil me-1"></i>Introdu cod manual (produs necatalogat)
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+
+<script>
+// All products + variants
+const ALL_PRODUCTS = [
+{% for p in produse %}
+    {cod:'{{ p.cod }}', den:'{{ p.denumire|e }}', variant: {{ 'true' if p.get('variant', false) else 'false' }} },
+{% endfor %}
+];
+
+let lineCount = 0;
+let activeLineIdx = null; // which line opened the modal
+
+function addLine(){
+    const idx = lineCount++;
+    const div = document.createElement('div');
+    div.className = 'nir-line';
+    div.id = 'line-'+idx;
+    div.innerHTML = `
+    <div class="d-flex justify-content-between mb-1">
+        <strong class="small text-muted">Linia ${idx+1}</strong>
+        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="remLine(${idx})">✕</button>
+    </div>
+    <div class="row g-2">
+        <div class="col-md-2">
+            <label class="form-label small">Cod Furnizor</label>
+            <input name="cod_furnizor_${idx}" class="form-control" placeholder="opțional" onblur="tryMapFurn(${idx})">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Cod EAN</label>
+            <input name="cod_ean_${idx}" class="form-control" placeholder="opțional" onblur="tryMapEan(${idx})">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Den. Furnizor</label>
+            <input name="den_furnizor_${idx}" class="form-control" placeholder="cum zice furniz.">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-bold">Cod Intern HSL *</label>
+            <div class="prod-pick" onclick="openProdModal(${idx})" id="pick-${idx}">
+                <span class="placeholder">Click pentru a selecta...</span>
+            </div>
+            <input type="hidden" name="cod_intern_${idx}" id="ci-${idx}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Denumire Internă</label>
+            <input name="den_intern_${idx}" id="di-${idx}" class="form-control" placeholder="Denumire produs">
+        </div>
+    </div>
+    <div class="row g-2 mt-1">
+        <div class="col-md-2">
+            <label class="form-label small">UM</label>
+            <select name="um_${idx}" class="form-select"><option>buc</option><option>ml</option><option>kg</option><option>set</option><option>m</option></select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-bold">Cantitate *</label>
+            <input name="cant_${idx}" type="number" step="0.01" min="0" class="form-control" value="1" required oninput="calcTotal()">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Preț Achiziție (€) *</label>
+            <input name="pret_${idx}" type="number" step="0.01" min="0" class="form-control" value="0" required oninput="calcTotal()">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Valoare</label>
+            <input id="val-${idx}" class="form-control" readonly style="background:#f0fdf4;font-weight:bold" value="0.00€">
+        </div>
+    </div>`;
+    document.getElementById('lines').appendChild(div);
+}
+
+function remLine(idx){document.getElementById('line-'+idx)?.remove();calcTotal();}
+
+// PRODUCT MODAL
+function openProdModal(idx){
+    activeLineIdx = idx;
+    document.getElementById('prodSearch').value = '';
+    renderProducts('');
+    const modal = new bootstrap.Modal(document.getElementById('prodModal'));
+    modal.show();
+    setTimeout(() => document.getElementById('prodSearch').focus(), 300);
+}
+
+function renderProducts(q){
+    const res = document.getElementById('prodResults');
+    const lower = q.toLowerCase();
+    const filtered = q ? ALL_PRODUCTS.filter(p => 
+        p.cod.toLowerCase().includes(lower) || p.den.toLowerCase().includes(lower)
+    ) : ALL_PRODUCTS;
+    
+    if(!filtered.length){
+        res.innerHTML = '<div class="text-center text-muted py-4">Niciun rezultat. Folosește butonul de mai jos pentru cod manual.</div>';
+        return;
+    }
+    res.innerHTML = filtered.slice(0, 50).map(p => `
+        <div class="prod-row ${p.variant ? 'variant' : ''}" onclick="selectProduct('${p.cod}','${p.den.replace(/'/g,"\\'")}')">
+            <span class="cod">${p.cod}</span>
+            <span class="den">${p.den}</span>
+        </div>
+    `).join('');
+}
+
+function selectProduct(cod, den){
+    if(activeLineIdx === null) return;
+    document.getElementById('ci-'+activeLineIdx).value = cod;
+    document.getElementById('di-'+activeLineIdx).value = den;
+    const pick = document.getElementById('pick-'+activeLineIdx);
+    pick.innerHTML = `<strong>${cod}</strong><span class="text-muted ms-2 small">${den}</span>`;
+    pick.classList.add('suggest-found');
+    bootstrap.Modal.getInstance(document.getElementById('prodModal')).hide();
+}
+
+function selectCustom(){
+    const cod = prompt('Introdu codul produsului (poate fi temporar):');
+    if(!cod) return;
+    const den = prompt('Introdu denumirea produsului:') || '';
+    selectProduct(cod.trim(), den.trim());
+}
+
+document.getElementById('prodSearch')?.addEventListener('input', e => renderProducts(e.target.value));
+
+// Auto-suggest from supplier code
+function tryMapFurn(idx){
+    const cod = document.querySelector(`[name="cod_furnizor_${idx}"]`).value.trim();
+    if(!cod) return;
+    const fid = document.getElementById('furnizorId').value;
+    fetch(`/api/wms/mapare-suggest?cod_furnizor=${encodeURIComponent(cod)}&furnizor_id=${fid}`)
+    .then(r=>r.json()).then(d=>{
+        if(d.found){
+            document.getElementById('ci-'+idx).value = d.cod_intern;
+            const den = d.denumire_furnizor || '';
+            const map = ALL_PRODUCTS.find(p => p.cod === d.cod_intern);
+            document.getElementById('di-'+idx).value = map ? map.den : den;
+            const pick = document.getElementById('pick-'+idx);
+            pick.innerHTML = `<strong>${d.cod_intern}</strong><span class="text-muted ms-2 small">${map?.den||den}</span>`;
+            pick.classList.add('suggest-found');
+            if(d.denumire_furnizor) document.querySelector(`[name="den_furnizor_${idx}"]`).value = d.denumire_furnizor;
+        }
+    });
+}
+
+function tryMapEan(idx){
+    const cod = document.querySelector(`[name="cod_ean_${idx}"]`).value.trim();
+    if(!cod) return;
+    fetch(`/api/wms/mapare-suggest?cod_ean=${encodeURIComponent(cod)}`)
+    .then(r=>r.json()).then(d=>{
+        if(d.found){
+            document.getElementById('ci-'+idx).value = d.cod_intern;
+            const map = ALL_PRODUCTS.find(p => p.cod === d.cod_intern);
+            document.getElementById('di-'+idx).value = map ? map.den : '';
+            const pick = document.getElementById('pick-'+idx);
+            pick.innerHTML = `<strong>${d.cod_intern}</strong><span class="text-muted ms-2 small">${map?.den||''}</span>`;
+            pick.classList.add('suggest-found');
+        }
+    });
+}
+
+function calcTotal(){
+    let total = 0;
+    for(let i=0; i<lineCount; i++){
+        const el = document.getElementById('line-'+i);
+        if(!el) continue;
+        const c = parseFloat(document.querySelector(`[name="cant_${i}"]`)?.value) || 0;
+        const p = parseFloat(document.querySelector(`[name="pret_${i}"]`)?.value) || 0;
+        const v = c * p;
+        const ve = document.getElementById('val-'+i);
+        if(ve) ve.value = v.toFixed(2) + '€';
+        total += v;
+    }
+    document.getElementById('totalAch').textContent = total.toFixed(2) + '€';
+}
+
+document.addEventListener('DOMContentLoaded', () => addLine());
+</script>
+{% endblock %}

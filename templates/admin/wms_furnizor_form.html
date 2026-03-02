@@ -1,0 +1,35 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Editare' if furn else 'Furnizor Nou' }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-truck me-2"></i>{{ 'Editare Furnizor' if furn else 'Furnizor Nou' }}</h2>
+</div>
+<div class="bg-white rounded-3 p-4" style="max-width:600px">
+<form method="POST">
+    <div class="mb-3"><label class="form-label fw-bold">Nume *</label>
+        <input name="nume" class="form-control" value="{{ furn.nume if furn else '' }}" required></div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-6"><label class="form-label">CUI</label>
+            <input name="cui" class="form-control" value="{{ furn.cui if furn else '' }}"></div>
+        <div class="col-md-6"><label class="form-label">Contact</label>
+            <input name="contact" class="form-control" value="{{ furn.contact if furn else '' }}"></div>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-6"><label class="form-label">Telefon</label>
+            <input name="telefon" class="form-control" value="{{ furn.telefon if furn else '' }}"></div>
+        <div class="col-md-6"><label class="form-label">Email</label>
+            <input name="email" class="form-control" value="{{ furn.email if furn else '' }}"></div>
+    </div>
+    {% if furn %}
+    <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" name="activ" id="activ" {{ 'checked' if furn.activ }}>
+        <label class="form-check-label" for="activ">Activ</label>
+    </div>
+    {% endif %}
+    <div class="d-flex gap-2">
+        <button class="btn btn-hsl">💾 Salvează</button>
+        <a href="/admin/wms/furnizori" class="btn btn-outline-secondary">Anulează</a>
+    </div>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,925 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Configurator - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.btn-hsl-cfg{background:#61993B;color:white;border:none}.btn-hsl-cfg:hover{background:#4a7a2e;color:white}
+.panel{background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px;height:100%}
+.product-list{max-height:52vh;overflow-y:auto;border:1px solid #e9ecef;border-radius:8px}
+.product-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:.88rem}
+.product-item:hover{background:#f0f9e8}.product-item.active{background:#d4edba;font-weight:500}
+.variant-item{background:#f8fdf5;padding:6px 12px}.variant-item:hover{background:#e8f5d9}.variant-item code{color:#1D2F34;font-size:.82rem}
+.tab-btn{border:1px solid #dee2e6;background:white;padding:4px 10px;border-radius:4px;font-size:.8rem;cursor:pointer}
+.tab-btn.active{background:#1D2F34;color:white;border-color:#1D2F34}
+.item-card{background:#fafbfc;border:1px solid #e9ecef;border-radius:8px;padding:12px;margin-bottom:10px}
+.acc-std{color:#888;font-style:italic;font-size:.82rem}
+.acc-opt{font-size:.85rem;border-bottom:1px dotted #e9ecef;padding:3px 0}
+.price-tag{font-weight:700;color:#61993B}
+.totals-box{background:linear-gradient(135deg,#1D2F34,#243d44);color:white;border-radius:10px;padding:16px;margin-top:12px}
+.totals-box .tl{display:flex;justify-content:space-between;padding:4px 0}
+.totals-box .tm{font-size:1.15rem;font-weight:700;border-top:2px solid rgba(255,255,255,.3);padding-top:8px;margin-top:8px}
+.modal-header{background:#1D2F34;color:white}.modal-header .btn-close{filter:invert(1)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-gear me-2"></i>Configurator Oferte</h2>
+    <a href="/admin/oferte" class="btn btn-outline-secondary"><i class="bi bi-list me-1"></i>Toate Ofertele</a>
+</div>
+
+<div class="row g-3">
+<!-- LEFT: Products -->
+<div class="col-md-4 col-lg-3"><div class="panel">
+<h6 class="fw-bold mb-2" style="color:#1D2F34">Produse Disponibile</h6>
+<input id="prod-search" class="form-control form-control-sm mb-2" placeholder="🔍 Caută produs, cod variantă, dimensiune, culoare...">
+<div class="mb-2 d-flex flex-wrap gap-1" id="prod-tabs"></div>
+<div class="product-list" id="prod-list"></div>
+<button class="btn btn-hsl btn-sm w-100 mt-2" onclick="addSelectedProduct()">➕ Adaugă Produs</button>
+<button class="btn btn-outline-secondary btn-sm w-100 mt-1" onclick="addStandaloneAcc()">🔧 Adaugă Accesoriu Standalone</button>
+</div></div>
+<!-- RIGHT: Config -->
+<div class="col-md-8 col-lg-9"><div class="panel">
+<h6 class="fw-bold mb-2" style="color:#1D2F34">Configurație Ofertă</h6>
+<div class="d-flex align-items-center gap-3 mb-2 p-2 rounded" style="background:#e8f5e9;border:1px solid #c8e6c9">
+<strong class="small">👤 CLIENT:</strong>
+<div class="position-relative" style="width:300px">
+<input id="cfg-client-search" class="form-control form-control-sm" placeholder="Caută client..." autocomplete="off"
+    oninput="filterCfgClients()" onfocus="document.getElementById('cfg-client-dropdown').style.display=''">
+<input type="hidden" id="cfg-client" value="">
+<div id="cfg-client-dropdown" class="position-absolute bg-white border rounded shadow-sm" style="display:none;width:100%;max-height:200px;overflow-y:auto;z-index:100;top:100%">
+{% for c in clienti %}<div class="cfg-cli-opt px-2 py-1" style="cursor:pointer;font-size:.85rem" data-id="{{c.id}}" data-name="{{c.nume}}" data-search="{{c.nume|lower}} {{(c.cui or '')|lower}}"
+    onmouseover="this.style.background='#f0f9e8'" onmouseout="this.style.background=''"
+    onclick="selectCfgClient(this)">{{c.nume}}{% if c.cui %} <small class="text-muted">({{c.cui}})</small>{% endif %}</div>{% endfor %}
+</div>
+</div>
+<span id="client-price-badge" class="small"></span>
+<button class="btn btn-outline-secondary btn-sm py-0" style="font-size:.75rem" onclick="clearCfgClient()" title="Resetează">✕</button>
+</div>
+<div class="d-flex align-items-center gap-3 mb-3 p-2 rounded" style="background:#f8f9fa;border:1px solid #e9ecef">
+<strong class="small">DISCOUNT/ADAOS:</strong>
+<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="dm" id="dm-ind" checked onchange="renderItems()"><label class="form-check-label small" for="dm-ind">Individual</label></div>
+<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="dm" id="dm-glob" onchange="renderItems()"><label class="form-check-label small" for="dm-glob">Global</label></div>
+<div id="gd-wrap" style="display:none"><input id="gd-val" type="number" step="0.01" value="0" class="form-control form-control-sm" style="width:80px" oninput="renderItems()"><small class="text-muted ms-1">%</small></div>
+</div>
+<div id="items-box" style="max-height:52vh;overflow-y:auto"><p class="text-muted text-center py-4">Niciun produs adăugat</p></div>
+<div class="totals-box">
+<div class="tl"><span>SUBTOTAL:</span><span id="t-sub">0.00 EUR</span></div>
+<div class="tl"><span>TVA 19%:</span><span id="t-tva">0.00 EUR</span></div>
+<div class="tl tm"><span>TOTAL GENERAL:</span><span id="t-tot">0.00 EUR</span></div>
+</div>
+<button class="btn btn-hsl w-100 mt-3 py-2 fw-bold" id="saveBtn" onclick="genOffer()">💾 Generează Ofertă Excel</button>
+</div></div>
+</div>
+
+<!-- Modal Config -->
+<div class="modal fade" id="cfgM" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title" id="cfgT"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="cfgB" style="max-height:75vh;overflow-y:auto"></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+<button class="btn btn-hsl" id="cfgS">Adaugă în Ofertă</button></div>
+</div></div></div>
+
+<!-- Modal Client -->
+<div class="modal fade" id="cliM" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Informații Client & Generare Ofertă</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<div class="mb-2"><label class="form-label fw-bold">Client existent</label><select id="ci-ex" class="form-select" onchange="onCliSel()">
+<option value="">-- Client nou --</option>
+{% for c in clienti %}<option value="{{c.id}}" data-n="{{c.nume}}" data-e="{{c.email or ''}}" data-p="{{c.telefon or ''}}" data-a="{{c.adresa or ''}}">{{c.nume}}{% if c.cui %} ({{c.cui}}){% endif %}</option>{% endfor %}
+</select></div><hr>
+<div class="mb-2"><label class="form-label">Valabilitate (zile)</label><input id="ci-v" class="form-control" type="number" value="30"></div>
+<div class="mb-2"><label class="form-label">Observații</label><textarea id="ci-obs" class="form-control" rows="2"></textarea></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+<button class="btn btn-hsl" id="cliS">Salvează Ofertă</button></div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const J=(u,o={})=>{o.headers={'Content-Type':'application/json',...o.headers};if(o.body&&typeof o.body==='object')o.body=JSON.stringify(o.body);return fetch(u,o).then(r=>r.json())};
+let prods=[],filtered=[],items=[],curCat='All',selIdx=-1,cfgMod,cliMod,editOfertaId=null;
+let clientPreturi=null; // {has_sablon, sablon_nume, discounts:{prodId: {discount, pret_lista, pret_client, pret_minim}}}
+document.addEventListener('DOMContentLoaded',async()=>{
+    cfgMod=new bootstrap.Modal('#cfgM');cliMod=new bootstrap.Modal('#cliM');
+    prods=await J('/api/cfg/configurator/produse');
+    buildTabs();filter();
+    document.getElementById('prod-search').addEventListener('input',filter);
+    // EDIT MODE: load existing offer
+    const params=new URLSearchParams(window.location.search);
+    if(params.get('edit')){
+        editOfertaId=parseInt(params.get('edit'));
+        const data=await J(`/api/oferta/${editOfertaId}/edit-data`);
+        if(data.oferta_id){
+            // Set client
+            if(data.client_id){document.getElementById('ci-ex').value=data.client_id;}
+            // Set discount mode
+            if(data.discount_mode==='global'){document.getElementById('dm-glob').checked=true;document.getElementById('gd-val').value=data.discount_global||0;}
+            // Set valabilitate
+            document.getElementById('ci-v').value=data.valabilitate_zile||30;
+            // Load items
+            // Load items - re-group sub-lines (produse_legate, accesorii) back into parents
+            const rawItems=data.items.map(it=>({...it,cod_baza:it.cod_baza||it.cod,pret:it.pret_final||it.pret_catalog}));
+            items=[];
+            let currentParent=null;
+            rawItems.forEach(it=>{
+                if(it.is_sub_line && currentParent){
+                    // Sub-line: either linked product or accessory
+                    if(it.tip==='Accesoriu'){
+                        currentParent.accesorii=currentParent.accesorii||[];
+                        currentParent.accesorii.push({cod:it.cod,denumire:it.denumire,pret:it.pret_catalog,pret_catalog:it.pret_catalog,pret_final:it.pret_final,um:it.um,cantitate:it.cantitate,discount_adaos:it.discount_adaos||0,is_standard:false});
+                    } else {
+                        currentParent.produse_legate=currentParent.produse_legate||[];
+                        currentParent.produse_legate.push({cod:it.cod,cod_baza:it.cod_baza,denumire:it.denumire,pret:it.pret_catalog,pret_catalog:it.pret_catalog,pret_final:it.pret_final,um:it.um,cantitate:it.cantitate,parametri:it.parametri||{},discount_adaos:it.discount_adaos||0,is_sub:true});
+                    }
+                } else {
+                    // Main line
+                    it.produse_legate=it.produse_legate||[];
+                    it.accesorii=it.accesorii||[];
+                    items.push(it);
+                    currentParent=it;
+                }
+            });
+            renderItems();
+            document.querySelector('.page-header h2').innerHTML='<i class="bi bi-pencil me-2"></i>Editare Ofertă #'+editOfertaId;
+            document.getElementById('saveBtn').innerHTML='💾 Salvează Modificările';
+        }
+    }
+});
+
+function buildTabs(){
+    const cats={{cat_produse|tojson}};
+    let h=`<span class="tab-btn active" onclick="switchCat('All',this)">All (${prods.length})</span>`;
+    cats.forEach(c=>{const n=prods.filter(p=>p.categories.includes(c.id)).length;if(n)h+=`<span class="tab-btn" onclick="switchCat(${c.id},this)">${c.nume} (${n})</span>`;});
+    document.getElementById('prod-tabs').innerHTML=h;
+}
+function switchCat(c,b){curCat=c;document.querySelectorAll('#prod-tabs .tab-btn').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');filter();}
+function filter(){
+    const q=document.getElementById('prod-search').value.toLowerCase().trim();
+    const listEl=document.getElementById('prod-list');
+
+    // No query or short - show products as before
+    if(!q || q.length < 2){
+        filtered=prods.filter(p=>(curCat==='All'||p.categories.includes(curCat))&&(!q||p.cod.toLowerCase().includes(q)||p.denumire.toLowerCase().includes(q)));
+        listEl.innerHTML=filtered.map((p,i)=>`<div class="product-item" onclick="selProd(this,${i})">${p.cod} - ${p.denumire}</div>`).join('')||'<p class="text-muted p-3 text-center">Niciun produs</p>';
+        selIdx=-1;_expandedProd=null;
+        return;
+    }
+
+    // Deep search: group matching variants by product
+    let prodResults=[];
+    prods.forEach(p=>{
+        if(curCat!=='All'&&!p.categories.includes(curCat)) return;
+        const baseMat=p.cod.toLowerCase().includes(q)||p.denumire.toLowerCase().includes(q);
+        const vc=p.variante||{};
+        const variants=vc.variants||[];
+        let matchedVars=[];
+        variants.forEach(v=>{
+            const combo=v.combination||v.params||{};
+            const suffix=v.suffix||v.code||'';
+            const fullCode=(p.cod+suffix).toLowerCase();
+            const comboStr=Object.values(combo).join(' ').toLowerCase();
+            if(fullCode.includes(q)||suffix.toLowerCase().includes(q)||comboStr.includes(q)){
+                matchedVars.push(v);
+            }
+        });
+        if(baseMat||matchedVars.length){
+            prodResults.push({product:p,matchedVars:matchedVars,baseMat:baseMat});
+        }
+    });
+
+    filtered=prodResults;
+    if(!filtered.length){
+        listEl.innerHTML='<p class="text-muted p-3 text-center">Niciun rezultat</p>';
+        selIdx=-1;return;
+    }
+    _renderFilteredList();
+    selIdx=-1;
+}
+
+let _expandedProd=null;
+
+function _renderFilteredList(){
+    const listEl=document.getElementById('prod-list');
+    listEl.innerHTML=filtered.map((r,i)=>{
+        const p=r.product,nv=r.matchedVars.length;
+        const isExpanded=_expandedProd===p.cod;
+        const isSelected=selIdx===i && !isExpanded;
+        let h=`<div class="product-item ${isSelected?'active':''}" onclick="selProd(this,${i})">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>${p.cod} - ${p.denumire}</span>
+                ${nv?`<span class="badge ${isExpanded?'bg-secondary':'bg-success'} rounded-pill variant-badge" style="font-size:.72rem;cursor:pointer" onclick="event.stopPropagation();toggleProdVariants('${p.cod}',${i})">${isExpanded?'▾ ascunde':nv+' variante ▸'}</span>`:''}
+            </div>
+        </div>`;
+        if(isExpanded && nv){
+            h+=`<div class="variant-list" style="border-left:3px solid #61993B;margin-left:8px;background:#fafdf7">`;
+            r.matchedVars.slice(0,50).forEach((v,vi)=>{
+                const combo=v.combination||v.params||{};
+                const suffix=v.suffix||v.code||'';
+                const fullCode=p.cod+suffix;
+                const pret=(v.pret||v.price||0);
+                const parts=[];
+                if(combo.dimensiune){let ds=combo.dimensiune;if(combo.canate)ds+=', '+combo.canate+'C';parts.push(ds);}
+                Object.entries(combo).forEach(([k,val])=>{if(k!=='dimensiune'&&k!=='canate'&&val)parts.push(val);});
+                h+=`<div class="product-item variant-item" onclick="event.stopPropagation();addVariantFromList(${i},${vi})">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><code>${fullCode}</code> <small class="text-muted ms-1">${parts.join(' · ')}</small></div>
+                        <span class="fw-bold text-success" style="font-size:.82rem">${pret.toFixed(2)} €</span>
+                    </div>
+                </div>`;
+            });
+            if(r.matchedVars.length>50) h+=`<div class="text-muted small p-2 text-center">... +${r.matchedVars.length-50} variante</div>`;
+            h+=`</div>`;
+        }
+        return h;
+    }).join('');
+}
+
+function toggleProdVariants(cod,filtIdx){
+    if(_expandedProd===cod){
+        _expandedProd=null;
+    } else {
+        _expandedProd=cod;
+    }
+    _renderFilteredList();
+}
+
+function addVariantFromList(filtIdx,varIdx){
+    const r=filtered[filtIdx];
+    if(!r) return;
+    const p=r.product, v=r.matchedVars[varIdx];
+    if(!v) return;
+    const combo=v.combination||v.params||{};
+    const suffix=v.suffix||v.code||'';
+    const code=p.cod+suffix;
+    const price=v.pret||v.price||p.pret;
+    const canate=combo.canate||'';
+    const pt=p.parameter_types||[];
+    let paramParts=[];
+    pt.forEach(pm=>{
+        const val=combo[pm.key];
+        if(val){
+            if(pm.type==='dimension'){
+                let ds=val;
+                if(canate) ds+=', '+canate+(canate==='1'?' canat':' canate');
+                paramParts.push(ds);
+            } else paramParts.push(val);
+        }
+    });
+    const denumire=paramParts.length ? p.denumire+' | '+paramParts.join(', ') : p.denumire;
+    // Apply client pricing if available
+    let finalPrice=price, discClient=0;
+    if(clientPreturi && clientPreturi.has_sablon){
+        const cp=getClientPrice(p.id, price, suffix);
+        finalPrice=cp.pret; discClient=cp.discount;
+    }
+    items.push({tip:'Produs',cod:code,cod_baza:p.cod,denumire:denumire,denumire_baza:p.denumire,
+        pret:finalPrice,pret_catalog:finalPrice,pret_final:finalPrice,um:p.um,cantitate:1,discount_adaos:0,
+        parametri:combo,accesorii:[],dimensiune:combo.dimensiune||'',
+        _produs_id:p.id,_pret_lista:price,_variant_suffix:suffix,_discount_client:discClient});
+    renderItems();
+    document.getElementById('prod-search').value='';
+    _expandedProd=null;
+    filter();
+}
+
+function selProd(el,i){document.querySelectorAll('.product-item').forEach(e=>e.classList.remove('active'));el.classList.add('active');selIdx=i;}
+
+function addSelectedProduct(){
+    if(selIdx<0)return alert('Selectează un produs!');
+    const r=filtered[selIdx];
+    const p=r&&r.product?r.product:r;
+    if(!p||!p.cod)return alert('Selectează un produs!');
+    const pt=p.parameter_types||[],accs=p.accessories||[];
+    if(pt.length||accs.length)openCfg(p,null);
+    else{items.push({tip:'Produs',cod:p.cod,cod_baza:p.cod,denumire:p.denumire,pret:p.pret,pret_catalog:p.pret,pret_final:p.pret,um:p.um,cantitate:1,discount_adaos:0,parametri:{},accesorii:[],dimensiune:''});renderItems();}
+}
+
+/* CONFIG DIALOG */
+function openCfg(product,existing){
+    console.log('openCfg:', product.cod, 'legaturi:', product.legaturi, 'keys:', Object.keys(product));
+    const pt=product.parameter_types||[];
+    const vr=product.variante||{};
+    document.getElementById('cfgT').textContent='Configurare: '+product.denumire;
+    let h='';
+    pt.forEach(pm=>{
+        h+=`<div class="mb-3"><label class="form-label fw-bold">${pm.name}:</label>`;
+        if(pm.type==='dropdown'){
+            const mode=pm.mode||'fix',vals=(pm.values||[]).map(v=>typeof v==='object'?v.label:v);
+            const ex=existing?(existing.parametri[pm.key]||''):'';
+            if(mode==='completabil')h+=`<input class="form-control cp" data-k="${pm.key}" value="${ex}">`;
+            else if(mode==='mixt'){
+                h+=`<div class="d-flex gap-2"><select class="form-select cp" data-k="${pm.key}" onchange="cfgPC('${pm.key}')"><option value="">--</option>${vals.map(v=>`<option ${v===ex?'selected':''}>${v}</option>`).join('')}</select>
+                <div class="form-check align-self-center"><input class="form-check-input ccb" type="checkbox" data-k="${pm.key}" onchange="tgCust('${pm.key}')"><label class="form-check-label small">Custom</label></div></div>
+                <input class="form-control mt-1 cin" data-k="${pm.key}" style="display:none" placeholder="Valoare custom">`;
+            } else h+=`<select class="form-select cp" data-k="${pm.key}" onchange="cfgPC('${pm.key}')"><option value="">--</option>${vals.map(v=>`<option ${v===ex?'selected':''}>${v}</option>`).join('')}</select>`;
+        } else if(pm.type==='dimension'){
+            const dims=pm.predefined_dimensions||[],cust=pm.custom_dimensions!==false;
+            const ex=existing?(existing.parametri[pm.key]||''):'';
+            h+=`<div class="d-flex gap-2"><select class="form-select cp ds" data-k="${pm.key}" onchange="cfgPC('${pm.key}')"><option value="">--</option>${dims.map(d=>`<option value="${d.value}" data-can="${d.canate||''}" ${d.value===ex?'selected':''}>${d.value}${d.canate?' ('+d.canate+'C)':''}</option>`).join('')}</select>`;
+            if(cust)h+=`<div class="form-check align-self-center"><input class="form-check-input dcb" type="checkbox" data-k="${pm.key}" onchange="tgDim('${pm.key}')"><label class="form-check-label small">Custom</label></div>`;
+            h+=`</div>`;
+            if(cust)h+=`<div class="dcf mt-1" data-k="${pm.key}" style="display:none"><div class="d-flex gap-2">
+                <input class="form-control form-control-sm dw" data-k="${pm.key}" placeholder="Lățime mm">
+                <input class="form-control form-control-sm dh" data-k="${pm.key}" placeholder="Înălțime mm">
+                ${pm.has_canate?`<select class="form-select form-select-sm dcan" data-k="${pm.key}" style="width:80px"><option>1</option><option>2</option><option>3</option><option>4</option></select>`:''}
+                <input class="form-control form-control-sm dp" data-k="${pm.key}" placeholder="Preț EUR" type="number" step="0.01">
+            </div></div>`;
+        }
+        h+=`</div>`;
+    });
+    h+=`<div class="p-2 rounded mb-3" style="background:#f8f9fa;border:1px solid #e9ecef"><strong>Preț:</strong> <span id="cfg-pr" class="price-tag">--</span></div>`;
+    h+=`<div class="mb-3"><label class="form-label fw-bold">Cantitate:</label><input id="cfg-q" type="number" min="1" value="${existing?existing.cantitate:1}" class="form-control" style="width:100px"></div>`;
+    h+=`<div id="cfg-acc"></div>`;
+    document.getElementById('cfgB').innerHTML=h;
+
+    // Accessories - render from product.accessories (initially disabled until params selected)
+    const accs=product.accessories||[];
+    if(accs.length){
+        const std=accs.filter(a=>a.status==='standard'),opt=accs.filter(a=>a.status==='optional');
+        let ah='<hr><div id="cfg-acc-section" style="opacity:0.4;pointer-events:none"><h6 class="fw-bold">Accesorii <small class="text-muted fw-normal" id="acc-lock-msg">(selectează parametrii mai întâi)</small></h6>';
+        if(std.length){ah+='<div class="mb-2"><small class="text-muted fw-bold">STANDARD (incluse):</small>';std.forEach(a=>ah+=`<div class="acc-std acc-row" data-vc='${JSON.stringify(a.variante_compat||[])}'>• ${a.denumire} (standard)</div>`);ah+='</div>';}
+        if(opt.length){ah+='<small class="text-muted fw-bold">OPȚIONALE:</small>';
+            opt.forEach(a=>{
+                const pret=(a.pret||0).toFixed(2);
+                ah+=`<div class="acc-opt acc-row d-flex align-items-center gap-2" data-vc='${JSON.stringify(a.variante_compat||[])}'>
+                <input class="form-check-input ack" type="checkbox" data-c="${a.cod}" data-p="${a.pret||0}" data-pm="${a.pret_mode||'fix'}" data-d="${a.denumire}" data-u="${a.um||'buc'}">
+                <span class="flex-grow-1">${a.denumire} (${pret} EUR)</span><span class="small text-muted">Cant:</span>
+                <input type="number" class="form-control form-control-sm aq" data-c="${a.cod}" value="1" min="1" style="width:55px"></div>`;
+            });
+        }
+        ah+='</div>';
+        document.getElementById('cfg-acc').innerHTML=ah;
+        document.getElementById('cfg-acc').dataset.std=JSON.stringify(std);
+        // If editing existing item, unlock accessories immediately
+        if(existing) _unlockAccSection(null, true);
+    }
+
+    setTimeout(()=>updPr(product),100);
+    document.getElementById('cfgS').onclick=()=>saveCfg(product,existing);
+    cfgMod.show();
+}
+
+function _unlockAccSection(matchedSuffix, hasAllParams){
+    const sec=document.getElementById('cfg-acc-section');
+    if(!sec) return;
+    
+    // Only unlock when all parameters are selected (hasAllParams) or a variant matched
+    if(!hasAllParams && !matchedSuffix){
+        // Keep locked
+        sec.style.opacity='0.4';
+        sec.style.pointerEvents='none';
+        const msg=document.getElementById('acc-lock-msg');
+        if(msg) msg.style.display='';
+        return;
+    }
+    
+    // Unlock
+    sec.style.opacity='1';
+    sec.style.pointerEvents='auto';
+    const msg=document.getElementById('acc-lock-msg');
+    if(msg) msg.style.display='none';
+    
+    // Filter accessories by variant compatibility
+    document.querySelectorAll('.acc-row').forEach(row=>{
+        const vc=JSON.parse(row.dataset.vc||'[]');
+        let show=true;
+        if(vc.length>0){
+            if(matchedSuffix && vc.includes(matchedSuffix)){
+                show=true;
+            } else if(!matchedSuffix){
+                show=true;
+            } else {
+                show=false;
+            }
+        }
+        if(show){
+            row.classList.remove('d-none');
+        } else {
+            row.classList.add('d-none');
+        }
+    });
+}
+
+function cfgPC(k){const nm=document.getElementById('cfgT').textContent.replace('Configurare: ','');const p=prods.find(x=>x.denumire===nm);if(p)updPr(p);}
+function tgCust(k){const cb=document.querySelector(`.ccb[data-k="${k}"]`),inp=document.querySelector(`.cin[data-k="${k}"]`),sel=document.querySelector(`.cp[data-k="${k}"]`);if(cb.checked){inp.style.display='';sel.disabled=true;}else{inp.style.display='none';sel.disabled=false;}}
+function tgDim(k){const cb=document.querySelector(`.dcb[data-k="${k}"]`),f=document.querySelector(`.dcf[data-k="${k}"]`),sel=document.querySelector(`.ds[data-k="${k}"]`);if(cb.checked){f.style.display='';sel.disabled=true;}else{f.style.display='none';sel.disabled=false;}}
+
+function updPr(product){
+    const params={};
+    let allFilled=true;
+    document.querySelectorAll('.cp').forEach(el=>{
+        const k=el.dataset.k;
+        if(el.disabled){const cin=document.querySelector(`.cin[data-k="${k}"]`);if(cin)params[k]=cin.value;if(!cin||!cin.value)allFilled=false;}
+        else{params[k]=el.value;if(!el.value)allFilled=false;}
+    });
+    // For dimension selects, also grab canate from selected option's data-can
+    document.querySelectorAll('.ds').forEach(sel=>{
+        if(!sel.disabled && sel.selectedIndex>0){
+            const opt=sel.options[sel.selectedIndex];
+            const can=opt.dataset.can;
+            if(can) params['canate']=can;
+        } else if(!sel.disabled && sel.selectedIndex<=0){
+            allFilled=false;
+        }
+    });
+    document.querySelectorAll('.dcb:checked').forEach(cb=>{const k=cb.dataset.k;const w=document.querySelector(`.dw[data-k="${k}"]`);const h=document.querySelector(`.dh[data-k="${k}"]`);const dc=document.querySelector(`.dcan[data-k="${k}"]`);if(w&&h)params[k]=w.value+'x'+h.value;if(dc)params['canate']=dc.value;if(!w||!w.value||!h||!h.value)allFilled=false;});
+    J('/api/cfg/configurator/match-varianta',{method:'POST',body:{cod:product.cod,params:params}}).then(r=>{
+        const pr=r.price||product.pret;document.getElementById('cfg-pr').textContent=parseFloat(pr).toFixed(2)+' EUR';
+        // Store matched variant code for saveCfg
+        product._matched_code=r.variant_code||'';
+        // Unlock and filter accessories based on matched variant
+        _unlockAccSection(r.variant_code||'', allFilled);
+    });
+}
+
+function saveCfg(product,existing){
+    const params={},pt=product.parameter_types||[];
+    pt.forEach(pm=>{
+        const k=pm.key;const ccb=document.querySelector(`.ccb[data-k="${k}"]`);
+        if(ccb&&ccb.checked){const cin=document.querySelector(`.cin[data-k="${k}"]`);params[k]=cin?cin.value:'';}
+        else{const dcb=document.querySelector(`.dcb[data-k="${k}"]`);
+            if(dcb&&dcb.checked){const w=document.querySelector(`.dw[data-k="${k}"]`),h=document.querySelector(`.dh[data-k="${k}"]`);params[k]=(w?w.value:'')+'x'+(h?h.value:'');}
+            else{const el=document.querySelector(`.cp[data-k="${k}"]`);params[k]=el?el.value:'';}}
+    });
+    const qty=parseInt(document.getElementById('cfg-q').value)||1;
+    // Gather accessories
+    const accs=[];
+    try{const stdData=JSON.parse(document.getElementById('cfg-acc').dataset.std||'[]');stdData.forEach(a=>accs.push({cod:a.cod,denumire:a.denumire,pret:0,pret_catalog:0,pret_final:0,um:a.um||'buc',cantitate:1,is_standard:true}));}catch(e){}
+    document.querySelectorAll('.ack:checked').forEach(cb=>{
+        const c=cb.dataset.c,aq=document.querySelector(`.aq[data-c="${c}"]`);
+        accs.push({cod:c,denumire:cb.dataset.d,pret:parseFloat(cb.dataset.p)||0,pret_catalog:parseFloat(cb.dataset.p)||0,pret_final:parseFloat(cb.dataset.p)||0,um:cb.dataset.u||'buc',cantitate:parseInt(aq?aq.value:1)||1,discount_adaos:0,is_standard:false});
+    });
+    // Build dimension string + canate
+    let dim='',canate='';
+    pt.forEach(pm=>{if(pm.type==='dimension'){
+        dim=params[pm.key]||'';
+        const sel=document.querySelector(`.ds[data-k="${pm.key}"]`);
+        if(sel&&!sel.disabled&&sel.selectedIndex>0){const can=sel.options[sel.selectedIndex].dataset.can;if(can){params['canate']=can;canate=can;}}
+        const dcb=document.querySelector(`.dcb[data-k="${pm.key}"]`);
+        if(dcb&&dcb.checked){const dc=document.querySelector(`.dcan[data-k="${pm.key}"]`);if(dc){params['canate']=dc.value;canate=dc.value;}}
+    }});
+
+    // Match variant to get code + price (await to ensure we have the code)
+    J('/api/cfg/configurator/match-varianta',{method:'POST',body:{cod:product.cod,params:params}}).then(r=>{
+        const price=r.price||product.pret;
+        let code=product.cod;
+        if(r.matched && r.variant_code) code=product.cod+r.variant_code;
+        // Build display name with params
+        let paramParts=[];
+        pt.forEach(pm=>{
+            const v=params[pm.key];
+            if(v){
+                if(pm.type==='dimension'){
+                    let dimStr=v;
+                    if(canate) dimStr+=', '+canate+(canate==='1'?' canat':' canate');
+                    paramParts.push(dimStr);
+                } else paramParts.push(v);
+            }
+        });
+        const denumire_ext=paramParts.length ? product.denumire+' | '+paramParts.join(', ') : product.denumire;
+        // Apply client pricing if available
+        let finalPrice=price, pretLista=price, discClient=0;
+        if(clientPreturi && clientPreturi.has_sablon){
+            const cp=getClientPrice(product.id, price, r.variant_code||'');
+            finalPrice=cp.pret; pretLista=cp.pret_lista; discClient=cp.discount;
+        }
+        const item={tip:'Produs',cod:code,cod_baza:product.cod,denumire:denumire_ext,denumire_baza:product.denumire,
+            pret:finalPrice,pret_catalog:finalPrice,pret_final:finalPrice,um:product.um,cantitate:qty,discount_adaos:0,
+            parametri:params,accesorii:accs,dimensiune:dim,produse_legate:[],
+            _produs_id:product.id,_pret_lista:pretLista,_discount_client:discClient,_variant_suffix:r.variant_code||''};
+        if(existing){const idx=items.indexOf(existing);if(idx>=0)items[idx]=item;}else items.push(item);
+
+        // Check for linked products
+        const links=product.legaturi||[];
+        console.log('saveCfg: product', product.cod, 'has', links.length, 'legaturi');
+        if(links.length && !existing){
+            // Replace modal content directly (don't hide/show - just swap content)
+            openLinkDialog(product, item, r.variant_code||'');
+        } else {
+            cfgMod.hide();
+            renderItems();
+        }
+    });
+}
+
+/* LINKED PRODUCT DIALOG */
+function openLinkDialog(product, mainItem, mainSuffix){
+    const links=product.legaturi||[];
+    document.getElementById('cfgT').textContent='Asociază Produs Legat';
+    let h=`<p class="text-muted small">Produsul <strong>${mainItem.cod}</strong> are produse legate. Selectează ce vrei să asociezi:</p>`;
+
+    links.forEach((lk,li)=>{
+        // Find compatible variants based on main product's selected variant
+        const compats=lk.compatibilitati||[];
+        let compatVars=[];
+        if(mainSuffix){
+            // Filter: where varianta_a matches main suffix OR varianta_b matches
+            compatVars=compats.filter(c=>c.varianta_a===mainSuffix||c.varianta_b===mainSuffix);
+        }
+
+        const allVars=(lk.variante||{}).variants||[];
+        // If we have compatibility mappings, show only compatible variants; otherwise show all
+        let showVars=allVars;
+        if(compatVars.length){
+            const compatSuffixes=compatVars.map(c=>c.varianta_a===mainSuffix?c.varianta_b:c.varianta_a);
+            showVars=allVars.filter(v=>{
+                const s=v.suffix||v.code||'';
+                return compatSuffixes.includes(s);
+            });
+        }
+
+        h+=`<div class="card mb-2"><div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <div><input class="form-check-input lk-check" type="checkbox" data-li="${li}" checked>
+            <strong class="ms-1">${lk.cod}</strong> - ${lk.denumire}</div>
+        </div>
+        <div class="card-body py-2 lk-body" data-li="${li}">`;
+
+        if(showVars.length){
+            h+=`<select class="form-select form-select-sm lk-var" data-li="${li}"><option value="">-- Alege variantă --</option>`;
+            showVars.forEach(v=>{
+                const s=v.suffix||v.code||'';
+                const combo=v.combination||v.params||{};
+                const parts=[];
+                if(combo.dimensiune){let ds=combo.dimensiune;if(combo.canate)ds+=', '+combo.canate+'C';parts.push(ds);}
+                Object.entries(combo).forEach(([k,val])=>{if(k!=='dimensiune'&&k!=='canate'&&val)parts.push(val);});
+                const pret=v.pret||v.price||0;
+                h+=`<option value="${s}" data-pret="${pret}" data-combo='${JSON.stringify(combo)}'>${lk.cod}${s} - ${parts.join(', ')} (${pret.toFixed(2)} €)</option>`;
+            });
+            h+=`</select>`;
+        } else if(allVars.length){
+            h+=`<p class="text-muted small mb-0">Nicio variantă compatibilă găsită. <a href="#" onclick="event.preventDefault();document.querySelector('.lk-body[data-li=\\'${li}\\'] .lk-all').style.display=''">Arată toate</a></p>`;
+            h+=`<select class="form-select form-select-sm lk-var lk-all mt-1" data-li="${li}" style="display:none"><option value="">-- Alege variantă --</option>`;
+            allVars.forEach(v=>{
+                const s=v.suffix||v.code||'';
+                const combo=v.combination||v.params||{};
+                const parts=Object.values(combo).filter(x=>x).join(', ');
+                const pret=v.pret||v.price||0;
+                h+=`<option value="${s}" data-pret="${pret}" data-combo='${JSON.stringify(combo)}'>${lk.cod}${s} - ${parts} (${pret.toFixed(2)} €)</option>`;
+            });
+            h+=`</select>`;
+        } else {
+            h+=`<p class="text-muted small mb-0">Fără variante. Preț: ${lk.pret.toFixed(2)} €</p>`;
+        }
+
+        // Show settings summary from admin
+        const isPrinc = lk.principal==='other';
+        const isDimSrc = lk.dim_source==='other';
+        const priceSrc = lk.price_source||'both';
+        const settingsInfo=[];
+        if(isPrinc) settingsInfo.push('📌 Linie principală');
+        if(isDimSrc) settingsInfo.push('📏 Dimensiunea de aici');
+        if(priceSrc==='other') settingsInfo.push('💰 Prețul de aici');
+        else if(priceSrc==='both') settingsInfo.push('💰 Prețuri separate');
+        if(settingsInfo.length) h+=`<div class="mt-1"><small class="text-success">${settingsInfo.join(' · ')}</small></div>`;
+
+        h+=`</div></div>`;
+    });
+
+    document.getElementById('cfgB').innerHTML=h;
+    document.getElementById('cfgS').textContent='Finalizează';
+    document.getElementById('cfgS').onclick=()=>{
+        // Process linked products
+        links.forEach((lk,li)=>{
+            const check=document.querySelector(`.lk-check[data-li="${li}"]`);
+            if(!check||!check.checked) return;
+
+            const varSel=document.querySelector(`.lk-var[data-li="${li}"]:not([style*="display: none"])`)||document.querySelector(`.lk-var[data-li="${li}"]`);
+            // Use admin settings
+            const isPrimary=lk.principal==='other';
+            const usesDim=lk.dim_source==='other';
+            const priceSrc=lk.price_source||'both';
+
+            let lkCode=lk.cod, lkPrice=lk.pret, lkCombo={}, lkDim='';
+            if(varSel && varSel.value){
+                const opt=varSel.options[varSel.selectedIndex];
+                lkCode=lk.cod+varSel.value;
+                lkPrice=parseFloat(opt.dataset.pret)||lk.pret;
+                try{lkCombo=JSON.parse(opt.dataset.combo||'{}');}catch(e){}
+                lkDim=lkCombo.dimensiune||'';
+            }
+
+            // Build linked product display name
+            const lkPt=lk.parameter_types||[];
+            let lkParts=[];
+            // Get canate from linked combo, or fall back to main item's canate
+            const lkCanate=lkCombo.canate||mainItem.parametri.canate||'';
+            console.log('Link build name:', lk.cod, 'lkCombo:', lkCombo, 'lkCanate:', lkCanate, 'lkPt:', lkPt);
+            lkPt.forEach(pm=>{
+                const val=lkCombo[pm.key];
+                console.log('  param:', pm.key, 'type:', pm.type, 'val:', val);
+                if(val){
+                    if(pm.type==='dimension'){
+                        let ds=val;if(lkCanate)ds+=', '+lkCanate+(lkCanate==='1'?' canat':' canate');
+                        lkParts.push(ds);
+                    } else lkParts.push(val);
+                }
+            });
+            const lkDenumire=lkParts.length?lk.denumire+' | '+lkParts.join(', '):lk.denumire;
+            console.log('  => lkDenumire:', lkDenumire);
+
+            const lkItem={cod:lkCode,cod_baza:lk.cod,denumire:lkDenumire,pret:lkPrice,pret_catalog:lkPrice,pret_final:lkPrice,um:lk.um||'buc',cantitate:mainItem.cantitate,parametri:lkCombo};
+
+            if(isPrimary){
+                // Linked product becomes primary, main becomes sub-line
+                const origMain={cod:mainItem.cod,cod_baza:mainItem.cod_baza,denumire:mainItem.denumire,
+                    pret:mainItem.pret_catalog,pret_catalog:mainItem.pret_catalog,pret_final:mainItem.pret_final,
+                    um:mainItem.um,cantitate:mainItem.cantitate,parametri:mainItem.parametri,is_sub:true};
+                // Price handling
+                if(priceSrc==='other'){
+                    // Only linked product has price, main becomes 0
+                    origMain.pret=0;origMain.pret_catalog=0;origMain.pret_final=0;
+                } else if(priceSrc==='this'){
+                    // Only main product has price, linked becomes 0
+                    lkItem.pret=0;lkItem.pret_catalog=0;lkItem.pret_final=0;
+                }
+                mainItem.produse_legate=[origMain];
+                mainItem.cod=lkItem.cod; mainItem.cod_baza=lkItem.cod_baza;
+                mainItem.denumire=lkItem.denumire; mainItem.pret=lkItem.pret;
+                mainItem.pret_catalog=lkItem.pret_catalog; mainItem.pret_final=lkItem.pret_final;
+                if(usesDim) mainItem.dimensiune=lkDim;
+            } else {
+                // Linked product as sub-line
+                if(priceSrc==='other'){
+                    lkItem.pret=mainItem.pret_catalog+lkPrice;lkItem.pret_catalog=lkItem.pret;lkItem.pret_final=lkItem.pret;
+                    mainItem.pret=0;mainItem.pret_catalog=0;mainItem.pret_final=0;
+                } else if(priceSrc==='this'){
+                    lkItem.pret=0;lkItem.pret_catalog=0;lkItem.pret_final=0;
+                }
+                lkItem.is_sub=true;
+                mainItem.produse_legate.push(lkItem);
+                if(usesDim) mainItem.dimensiune=lkDim;
+            }
+        });
+
+        cfgMod.hide();
+        document.getElementById('cfgS').textContent='Adaugă în Ofertă';
+        renderItems();
+    };
+    cfgMod.show();
+}
+
+/* STANDALONE ACCESSORY */
+function addStandaloneAcc(){
+    J('/api/cfg/configurator/all-accesorii').then(accs=>{
+        if(!accs.length)return alert('Niciun accesoriu standalone!');
+        document.getElementById('cfgT').textContent='Adaugă Accesoriu Standalone';
+        let h='<input id="sa-s" class="form-control form-control-sm mb-2" placeholder="🔍 Caută..." oninput="fSa()"><div style="max-height:40vh;overflow-y:auto">';
+        accs.forEach(a=>h+=`<div class="product-item sa" onclick="sSa(this)" data-c="${a.cod}" data-d="${a.denumire}" data-p="${a.pret}" data-pm="${a.pret_mode}" data-u="${a.um}">${a.cod} - ${a.denumire} (${a.pret.toFixed(2)} EUR)</div>`);
+        h+='</div><hr><div class="d-flex gap-2 align-items-center"><label>Cant:</label><input id="sa-q" type="number" min="1" value="1" class="form-control" style="width:70px">';
+        h+='<div id="sa-pw" style="display:none"><label class="ms-2">Preț:</label><input id="sa-p" type="number" step="0.01" value="0" class="form-control" style="width:90px"></div></div>';
+        document.getElementById('cfgB').innerHTML=h;
+        document.getElementById('cfgS').onclick=()=>{
+            const sel=document.querySelector('.sa.active');if(!sel)return alert('Selectează!');
+            const p2=parseFloat(document.getElementById('sa-p').value)||parseFloat(sel.dataset.p)||0;
+            items.push({tip:'Accesoriu',cod:sel.dataset.c,cod_baza:sel.dataset.c,denumire:sel.dataset.d,um:sel.dataset.u,cantitate:parseInt(document.getElementById('sa-q').value)||1,
+                pret:p2,pret_catalog:p2,pret_final:p2,discount_adaos:0,parametri:{},accesorii:[],dimensiune:''});
+            cfgMod.hide();renderItems();};
+        cfgMod.show();
+    });
+}
+function sSa(el){document.querySelectorAll('.sa').forEach(e=>{e.classList.remove('active');e.style.background='';});el.classList.add('active');el.style.background='#d4edba';
+    const pw=document.getElementById('sa-pw');pw.style.display=(el.dataset.pm==='completabil'||el.dataset.pm==='mixt')?'':'none';document.getElementById('sa-p').value=el.dataset.p;}
+function fSa(){const q=document.getElementById('sa-s').value.toLowerCase();document.querySelectorAll('.sa').forEach(e=>e.style.display=e.textContent.toLowerCase().includes(q)?'':'none');}
+
+/* CLIENT SEARCH & PRICE LIST */
+function filterCfgClients(){
+    const q=document.getElementById('cfg-client-search').value.toLowerCase().trim();
+    const dd=document.getElementById('cfg-client-dropdown');
+    dd.style.display='';
+    dd.querySelectorAll('.cfg-cli-opt').forEach(el=>{
+        el.style.display=(!q||el.dataset.search.includes(q))?'':'none';
+    });
+}
+function selectCfgClient(el){
+    document.getElementById('cfg-client').value=el.dataset.id;
+    document.getElementById('cfg-client-search').value=el.dataset.name;
+    document.getElementById('cfg-client-dropdown').style.display='none';
+    onCfgClientChange();
+}
+function clearCfgClient(){
+    document.getElementById('cfg-client').value='';
+    document.getElementById('cfg-client-search').value='';
+    document.getElementById('client-price-badge').innerHTML='';
+    clientPreturi=null;
+    // Reset items to original list prices
+    items.forEach(it=>{
+        if(it.tip==='Produs' && it._pret_lista){
+            it.pret_catalog=it._pret_lista;
+            it.pret=it._pret_lista;
+            it._discount_client=0;
+            it.discount_adaos=0;
+        }
+    });
+    renderItems();
+}
+// Close dropdown on outside click
+document.addEventListener('click',e=>{
+    if(!e.target.closest('#cfg-client-search')&&!e.target.closest('#cfg-client-dropdown'))
+        document.getElementById('cfg-client-dropdown').style.display='none';
+});
+
+async function onCfgClientChange(){
+    const sel=document.getElementById('cfg-client');
+    const cid=sel.value;
+    const badge=document.getElementById('client-price-badge');
+    if(!cid){
+        clientPreturi=null;
+        badge.innerHTML='';
+        // Reset items to original prices
+        items.forEach(it=>{
+            if(it.tip==='Produs' && it._pret_lista){
+                it.pret_catalog=it._pret_lista;
+                it.pret=it._pret_lista;
+                it._discount_client=0;
+                it.discount_adaos=0;
+            }
+        });
+        renderItems();
+        return;
+    }
+    try{
+        const data=await J(`/api/cfg/configurator/client-preturi/${cid}`);
+        if(data.has_sablon){
+            clientPreturi=data;
+            badge.innerHTML=`<span class="badge bg-success">${data.sablon_nume}</span> <small class="text-muted">Discount global: ${data.discount_global}%</small>`;
+        } else {
+            clientPreturi=null;
+            badge.innerHTML='<small class="text-muted">Prețuri standard</small>';
+        }
+    }catch(e){clientPreturi=null;badge.innerHTML='';}
+    // Re-apply prices to ALL existing items
+    items.forEach(it=>{
+        if(it.tip!=='Produs') return;
+        const pid=it._produs_id;
+        if(!pid) return;
+        if(clientPreturi && clientPreturi.has_sablon){
+            const cp=getClientPrice(pid, it._pret_lista||it.pret_catalog, it._variant_suffix||'');
+            it.pret_catalog=cp.pret;
+            it.pret=cp.pret;
+            it._discount_client=cp.discount;
+            // Auto-fill discount field to reflect client discount (display only)
+            it.discount_adaos=0;
+        } else {
+            // No sablon — restore original list prices
+            if(it._pret_lista){
+                it.pret_catalog=it._pret_lista;
+                it.pret=it._pret_lista;
+            }
+            it._discount_client=0;
+            it.discount_adaos=0;
+        }
+    });
+    renderItems();
+}
+function getClientPrice(prodId, pretLista, variantSuffix){
+    if(!clientPreturi || !clientPreturi.has_sablon) return {pret:pretLista, discount:0, pret_lista:pretLista};
+    const info=clientPreturi.discounts[String(prodId)];
+    if(!info) return {pret:pretLista, discount:0, pret_lista:pretLista};
+    // Check variant-level first
+    if(variantSuffix && info.variante && info.variante[variantSuffix]){
+        const vi=info.variante[variantSuffix];
+        return {pret:vi.pret_client, discount:vi.discount, pret_lista:vi.pret_lista};
+    }
+    return {pret:info.pret_client, discount:info.discount, pret_lista:info.pret_lista};
+}
+
+/* RENDER ITEMS */
+function renderItems(){
+    const box=document.getElementById('items-box'),isGlob=document.getElementById('dm-glob').checked;
+    document.getElementById('gd-wrap').style.display=isGlob?'flex':'none';
+    const gDisc=parseFloat(document.getElementById('gd-val').value)||0;
+    if(!items.length){box.innerHTML='<p class="text-muted text-center py-4">Niciun produs adăugat</p>';calcTot();return;}
+    box.innerHTML=items.map((it,idx)=>{
+        const disc=isGlob?gDisc:(it.discount_adaos||0);
+        const pf=it.pret_catalog*(1+disc/100);it.pret_final=pf;
+        let h=`<div class="item-card"><div class="d-flex align-items-center gap-2">
+            <span style="background:#1D2F34;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700">${idx+1}</span>
+            <span class="badge ${it.tip==='Produs'?'bg-success':'bg-primary'}" style="font-size:.65rem">${it.tip}</span>
+            <strong>${it.cod}</strong> <span class="small text-muted">- ${it.denumire}</span>
+            <span class="ms-auto d-flex gap-1">`;
+        if(it.tip==='Produs')h+=`<button class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="editItem(${idx})">✏️</button>`;
+        h+=`<button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="delItem(${idx})">🗑️</button></span></div>
+            <div class="row mt-2 small">
+            <div class="col-md-3">Preț catalog: ${it._discount_client?`<del class="text-muted">${(it._pret_lista||it.pret_catalog).toFixed(2)}</del> <strong class="text-success">${it.pret_catalog.toFixed(2)}</strong> <small class="text-danger">(-${it._discount_client}%)</small>`:`<strong>${it.pret_catalog.toFixed(2)}</strong>`} EUR</div><div class="col-md-3">`;
+        if(!isGlob)h+=`Disc/Ad: <input type="number" step="0.01" value="${it.discount_adaos}" class="form-control form-control-sm d-inline" style="width:65px" onchange="items[${idx}].discount_adaos=parseFloat(this.value)||0;renderItems()"> %`;
+        else h+=`<span class="text-primary">(global ${gDisc>0?'+':''}${gDisc.toFixed(2)}%)</span>`;
+        h+=`</div><div class="col-md-3"><span class="price-tag">Preț final: ${pf.toFixed(2)} EUR</span></div>
+            <div class="col-md-3">Cant: <input type="number" min="1" value="${it.cantitate}" class="form-control form-control-sm d-inline" style="width:55px" onchange="chgQty(${idx},this.value)"> <span class="text-muted">Sub: ${(pf*it.cantitate).toFixed(2)}</span></div></div>`;
+        // Linked products (produse legate) - displayed first as sub-lines
+        if(it.produse_legate&&it.produse_legate.length){
+            h+=`<div class="mt-2 ms-3" style="border-left:3px solid #61993B;padding-left:10px"><small class="text-muted fw-bold" style="color:#61993B">Produse asociate:</small>`;
+            it.produse_legate.forEach(lk=>{
+                const lad=isGlob?gDisc:(lk.discount_adaos||0);const lpf=lk.pret_catalog*(1+lad/100);lk.pret_final=lpf;
+                h+=`<div class="acc-opt"><strong>↳ ${lk.cod}</strong> - ${lk.denumire}
+                    <span class="ms-1">(${lk.pret_catalog.toFixed(2)})</span>
+                    Cant: ${it.cantitate}
+                    <span class="price-tag ms-1">= ${(lpf*it.cantitate).toFixed(2)} EUR</span></div>`;
+            });
+            h+=`</div>`;
+        }
+        // Accessories after linked products
+        if(it.accesorii&&it.accesorii.length){
+            h+=`<div class="mt-2 ms-3" style="border-left:3px solid #e9ecef;padding-left:10px"><small class="text-muted fw-bold">Accesorii:</small>`;
+            it.accesorii.forEach(ac=>{
+                if(ac.is_standard)h+=`<div class="acc-std">• ${ac.denumire} (standard) Cant: ${it.cantitate}</div>`;
+                else{const ad=isGlob?gDisc:(ac.discount_adaos||0);const apf=ac.pret_catalog*(1+ad/100);ac.pret_final=apf;
+                    h+=`<div class="acc-opt">• ${ac.denumire} (${ac.pret_catalog.toFixed(2)}) Cant: ${ac.cantitate*it.cantitate} <span class="price-tag ms-1">= ${(apf*ac.cantitate*it.cantitate).toFixed(2)} EUR</span></div>`;}
+            });
+            h+=`</div>`;
+        }
+        // Subtotal with all
+        {
+            let subProd=pf*it.cantitate;
+            (it.accesorii||[]).filter(a=>!a.is_standard).forEach(a=>{const ad2=isGlob?gDisc:(a.discount_adaos||0);subProd+=a.pret_catalog*(1+ad2/100)*a.cantitate*it.cantitate;});
+            (it.produse_legate||[]).forEach(lk=>{const lad=isGlob?gDisc:(lk.discount_adaos||0);subProd+=lk.pret_catalog*(1+lad/100)*it.cantitate;});
+            if((it.accesorii&&it.accesorii.length)||(it.produse_legate&&it.produse_legate.length)){
+                h+=`<div class="text-end fw-bold small mt-1 ms-3" style="color:#1D2F34">SUBTOTAL PRODUS: ${subProd.toFixed(2)} EUR</div>`;
+            }
+        }
+        h+=`</div>`;return h;
+    }).join('');calcTot();
+}
+function chgQty(idx,val){items[idx].cantitate=parseInt(val)||1;renderItems();}
+function delItem(idx){items.splice(idx,1);renderItems();}
+function editItem(idx){const it=items[idx],p=prods.find(x=>x.cod===it.cod_baza);if(!p)return alert('Produs negăsit!');openCfg(p,it);}
+
+function calcTot(){
+    const isGlob=document.getElementById('dm-glob').checked,gD=parseFloat(document.getElementById('gd-val').value)||0;
+    let sub=0;
+    items.forEach(it=>{const d=isGlob?gD:(it.discount_adaos||0);const pf=it.pret_catalog*(1+d/100);sub+=pf*it.cantitate;
+        (it.accesorii||[]).filter(a=>!a.is_standard).forEach(a=>{const ad=isGlob?gD:(a.discount_adaos||0);sub+=a.pret_catalog*(1+ad/100)*a.cantitate*it.cantitate;});
+        (it.produse_legate||[]).forEach(lk=>{const lad=isGlob?gD:(lk.discount_adaos||0);sub+=lk.pret_catalog*(1+lad/100)*it.cantitate;});
+    });
+    const tva=sub*0.19,tot=sub+tva;
+    document.getElementById('t-sub').textContent=sub.toFixed(2)+' EUR';
+    document.getElementById('t-tva').textContent=tva.toFixed(2)+' EUR';
+    document.getElementById('t-tot').textContent=tot.toFixed(2)+' EUR';
+}
+
+/* GENERATE OFFER */
+function genOffer(){
+    if(!items.length)return alert('Nu există produse!');
+    // Sync client from config panel to offer dialog
+    const cfgClient=document.getElementById('cfg-client').value;
+    if(cfgClient)document.getElementById('ci-ex').value=cfgClient;
+    cliMod.show();
+    document.getElementById('cliS').onclick=async()=>{
+        const sel=document.getElementById('ci-ex');
+        // Flatten items: expand produse_legate and accessories as ordered sub-lines
+        // Order: 1) Main product  2) Linked products  3) Accessories
+        let flatItems=[];
+        items.forEach(it=>{
+            const mainItem={...it,pret_final:it.pret_final||it.pret};
+            const savedAccs = mainItem.accesorii || [];
+            delete mainItem.produse_legate;
+            // If we have linked products, move accessories out of main item to appear after
+            if((it.produse_legate||[]).length){
+                mainItem.accesorii = savedAccs.filter(a=>a.is_standard); // keep only standard in main
+            }
+            flatItems.push(mainItem);
+            // Add linked products
+            (it.produse_legate||[]).forEach(lk=>{
+                flatItems.push({tip:'Produs',cod:lk.cod,cod_baza:lk.cod_baza||lk.cod,denumire:lk.denumire,
+                    um:lk.um||'buc',dimensiune:lk.dimensiune||'',cantitate:it.cantitate,
+                    pret_catalog:lk.pret_catalog||lk.pret,discount_adaos:lk.discount_adaos||0,
+                    pret_final:lk.pret_final||lk.pret,parametri:lk.parametri||{},accesorii:[],
+                    is_sub_line:true,parent_cod:it.cod});
+            });
+            // Add optional accessories as separate lines after linked products
+            if((it.produse_legate||[]).length){
+                savedAccs.filter(a=>!a.is_standard).forEach(ac=>{
+                    flatItems.push({tip:'Accesoriu',cod:ac.cod,cod_baza:ac.cod,denumire:ac.denumire,
+                        um:ac.um||'buc',dimensiune:'',cantitate:ac.cantitate||1,
+                        pret_catalog:ac.pret_catalog||ac.pret||0,discount_adaos:ac.discount_adaos||0,
+                        pret_final:ac.pret_final||ac.pret||0,parametri:{},accesorii:[],
+                        is_sub_line:true,parent_cod:it.cod});
+                });
+            }
+        });
+        const payload={client_id:sel.value?parseInt(sel.value):null,
+            valabilitate_zile:parseInt(document.getElementById('ci-v').value)||30,
+            observatii:document.getElementById('ci-obs').value||'',
+            discount_mode:document.getElementById('dm-glob').checked?'global':'individual',
+            discount_global:parseFloat(document.getElementById('gd-val').value)||0,
+            items:flatItems};
+        if(editOfertaId)payload.oferta_id=editOfertaId;
+        const r=await J('/api/oferta/save',{method:'POST',body:payload});
+        if(r.success){
+            cliMod.hide();
+            if(editOfertaId){
+                alert('Oferta actualizată!');
+                location.href='/admin/oferte/'+r.oferta_id;
+            } else {
+                if(confirm(`Oferta ${r.numar} salvată!\n\nDescarcă Excel?`))window.open(`/api/oferta/${r.oferta_id}/excel`,'_blank');
+                if(confirm('Mergi la pagina ofertei?'))location.href='/admin/oferte/'+r.oferta_id;
+                else{items=[];renderItems();}
+            }
+        } else alert('Eroare: '+JSON.stringify(r));
+    };
+}
+function onCliSel(){
+    const o=document.getElementById('ci-ex').selectedOptions[0];
+    if(!o||!o.value)return;
+}
+</script>
+{% endblock %}

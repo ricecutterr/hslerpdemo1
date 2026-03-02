@@ -1,0 +1,71 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Facturi - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header"><h2><i class="bi bi-receipt me-2"></i>Facturi</h2></div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#proforme"><i class="bi bi-file-earmark-text me-1"></i>Proforme <span class="badge bg-warning text-dark">{{ proforme|length }}</span></a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#fiscale"><i class="bi bi-receipt me-1"></i>Fiscale <span class="badge bg-primary">{{ fiscale|length }}</span></a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#toate"><i class="bi bi-list me-1"></i>Toate</a></li>
+</ul>
+
+<div class="tab-content">
+<!-- PROFORME -->
+<div class="tab-pane fade show active" id="proforme">
+<div class="bg-white rounded-3 p-3">
+{% if proforme %}
+<table class="table table-hsl table-hover">
+<thead><tr><th>Nr.</th><th>Client</th><th>Ofertă</th><th>Data</th><th>Scadență</th><th>Total</th><th>Status</th></tr></thead>
+<tbody>{% for f in proforme %}
+<tr onclick="location.href='/admin/facturi/{{ f.id }}'" style="cursor:pointer">
+    <td class="fw-bold">{{ f.numar_complet }}</td>
+    <td><a href="/admin/clienti/{{ f.client_id }}/detalii">{{ f.client.nume }}</a></td>
+    <td>{% if f.oferta %}<a href="/admin/oferte/{{ f.oferta_id }}">{{ f.oferta.numar }}</a>{% else %}-{% endif %}</td>
+    <td>{{ f.data_factura }}</td><td>{{ f.data_scadenta }}</td>
+    <td class="fw-bold">{{ '{:,.2f}'.format(f.total) }} {{ f.moneda }}</td>
+    <td><span class="badge bg-{% if f.status=='incasata' %}success{% elif f.status=='confirmata' %}info{% elif f.status=='partial' %}info{% elif f.status=='emisa' %}warning{% elif f.status=='anulata' %}danger{% else %}secondary{% endif %}">
+        {% if f.status=='incasata' %}Plătită{% elif f.status=='confirmata' %}Confirmată{% elif f.status=='partial' %}Parțial{% elif f.status=='emisa' %}Neplătită{% elif f.status=='trimisa' %}Trimisă{% else %}{{ f.status|title }}{% endif %}
+    </span></td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="text-muted text-center py-4">Nicio proformă. Generează din pagina unei oferte acceptate.</div>{% endif %}
+</div>
+</div>
+
+<!-- FISCALE -->
+<div class="tab-pane fade" id="fiscale">
+<div class="bg-white rounded-3 p-3">
+{% if fiscale %}
+<table class="table table-hsl table-hover">
+<thead><tr><th>Nr.</th><th>Client</th><th>Comandă</th><th>Data</th><th>Scadență</th><th>Total</th><th>Status</th></tr></thead>
+<tbody>{% for f in fiscale %}
+<tr onclick="location.href='/admin/facturi/{{ f.id }}'" style="cursor:pointer">
+    <td class="fw-bold">{{ f.numar_complet }}</td>
+    <td><a href="/admin/clienti/{{ f.client_id }}/detalii">{{ f.client.nume }}</a></td>
+    <td>{% if f.comanda %}<a href="/admin/comenzi/{{ f.comanda_id }}">{{ f.comanda.numar }}</a>{% else %}-{% endif %}</td>
+    <td>{{ f.data_factura }}</td><td>{{ f.data_scadenta }}</td>
+    <td class="fw-bold">{{ '{:,.2f}'.format(f.total) }} {{ f.moneda }}</td>
+    <td><span class="badge bg-{% if f.status=='incasata' %}success{% elif f.status=='emisa' %}warning{% else %}secondary{% endif %}">{{ f.status|title }}</span></td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="text-muted text-center py-4">Nicio factură fiscală. Generează din pagina unei comenzi.</div>{% endif %}
+</div>
+</div>
+
+<!-- TOATE -->
+<div class="tab-pane fade" id="toate">
+<div class="bg-white rounded-3 p-3">
+<table class="table table-hsl table-hover">
+<thead><tr><th>Tip</th><th>Nr.</th><th>Client</th><th>Sursă</th><th>Data</th><th>Total</th><th>Status</th></tr></thead>
+<tbody>{% for f in toate %}
+<tr onclick="location.href='/admin/facturi/{{ f.id }}'" style="cursor:pointer">
+    <td><span class="badge bg-{% if f.tip=='proforma' %}warning text-dark{% else %}primary{% endif %}">{{ 'PF' if f.tip=='proforma' else 'FC' }}</span></td>
+    <td class="fw-bold">{{ f.numar_complet }}</td>
+    <td>{{ f.client.nume }}</td>
+    <td>{% if f.oferta %}OF: {{ f.oferta.numar }}{% elif f.comanda %}CMD: {{ f.comanda.numar }}{% else %}-{% endif %}</td>
+    <td>{{ f.data_factura }}</td>
+    <td class="fw-bold">{{ '{:,.2f}'.format(f.total) }} {{ f.moneda }}</td>
+    <td><span class="badge bg-{% if f.status=='incasata' %}success{% elif f.status=='emisa' %}warning{% else %}secondary{% endif %}">{{ f.status|title }}</span></td>
+</tr>{% endfor %}</tbody></table>
+</div>
+</div>
+</div>
+{% endblock %}

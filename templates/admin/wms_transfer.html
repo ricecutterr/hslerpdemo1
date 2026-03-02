@@ -1,0 +1,111 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Transfer Celule - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.transfer-card{background:#fff;border-radius:10px;padding:20px;max-width:600px;margin:0 auto}
+.transfer-arrow{font-size:2rem;color:#61993B;text-align:center;padding:10px 0}
+.stoc-badge{font-size:.8rem;padding:3px 8px;border-radius:4px;background:#f0f0f0;display:inline-block;margin:2px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-arrow-left-right me-2"></i>Transfer între Celule</h2>
+</div>
+
+<div class="transfer-card">
+    <div class="mb-3">
+        <label class="form-label fw-bold">Produs</label>
+        <select id="codIntern" class="form-select" onchange="updateStoc()">
+            <option value="">-- Selectează produs --</option>
+            {% for s in stocuri %}
+            <option value="{{ s.cod_intern }}" data-celula="{{ s.celula_id }}" data-cant="{{ s.cantitate }}" data-celcod="{{ s.celula.cod if s.celula else '' }}">
+                {{ s.cod_intern }} — {{ s.cantitate|int }} buc în {{ s.celula.cod if s.celula else 'N/A' }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">Din Celula (sursă)</label>
+        <select id="celulaSursa" class="form-select">
+            <option value="">-- Selectează --</option>
+            {% for c in celule %}<option value="{{ c.id }}">{{ c.cod }}{% if c.zona %} ({{ c.zona }}){% endif %}</option>{% endfor %}
+        </select>
+        <div id="stocSursa" class="mt-1"></div>
+    </div>
+
+    <div class="transfer-arrow"><i class="bi bi-arrow-down-circle-fill"></i></div>
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">În Celula (destinație)</label>
+        <select id="celulaDest" class="form-select">
+            <option value="">-- Selectează --</option>
+            {% for c in celule %}<option value="{{ c.id }}">{{ c.cod }}{% if c.zona %} ({{ c.zona }}){% endif %}</option>{% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">Cantitate</label>
+        <input id="cantitate" type="number" step="1" min="1" class="form-control form-control-lg text-center" value="1">
+    </div>
+
+    <div id="transferMsg" class="mb-3"></div>
+
+    <button class="btn btn-hsl btn-lg w-100" onclick="doTransfer()">
+        <i class="bi bi-arrow-left-right me-2"></i>Transferă
+    </button>
+</div>
+
+<div class="bg-white rounded-3 p-3 mt-4" style="max-width:600px;margin:0 auto">
+    <h6 class="fw-bold"><i class="bi bi-clock-history me-2"></i>Stoc pe Celule</h6>
+    {% set grouped = {} %}
+    {% for s in stocuri %}
+    <div class="d-flex justify-content-between py-1 border-bottom">
+        <div><strong>{{ s.cod_intern }}</strong> <span class="text-muted small">{{ s.denumire or '' }}</span></div>
+        <div><span class="stoc-badge">📍 {{ s.celula.cod if s.celula else 'N/A' }}: <strong>{{ s.cantitate|int }}</strong></span></div>
+    </div>
+    {% else %}<p class="text-muted text-center py-2">Niciun stoc pe celule</p>{% endfor %}
+</div>
+
+<script>
+const STOCURI = {};
+{% for s in stocuri %}
+if(!STOCURI['{{ s.cod_intern }}']) STOCURI['{{ s.cod_intern }}'] = [];
+STOCURI['{{ s.cod_intern }}'].push({celula_id:{{ s.celula_id or 'null' }}, celula_cod:'{{ s.celula.cod if s.celula else "" }}', cant:{{ s.cantitate }}});
+{% endfor %}
+
+function updateStoc(){
+    const sel = document.getElementById('codIntern');
+    const opt = sel.options[sel.selectedIndex];
+    if(opt && opt.dataset.celula){
+        document.getElementById('celulaSursa').value = opt.dataset.celula;
+        document.getElementById('cantitate').max = parseInt(opt.dataset.cant);
+        document.getElementById('stocSursa').innerHTML = '<span class="stoc-badge">Disponibil: <strong>'+parseInt(opt.dataset.cant)+'</strong></span>';
+    }
+}
+
+function doTransfer(){
+    const cod = document.getElementById('codIntern');
+    const codVal = cod.options[cod.selectedIndex]?.text.split(' —')[0] || '';
+    const sursa = document.getElementById('celulaSursa').value;
+    const dest = document.getElementById('celulaDest').value;
+    const cant = document.getElementById('cantitate').value;
+
+    if(!codVal || !sursa || !dest || !cant){
+        return showMsg('Completează toate câmpurile!','danger');
+    }
+    if(sursa === dest) return showMsg('Sursa și destinația nu pot fi aceeași celulă!','danger');
+
+    fetch('/api/wms/transfer',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cod_intern:codVal.trim(), celula_sursa_id:sursa, celula_destinatie_id:dest, cantitate:parseFloat(cant)})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){showMsg('✅ '+d.message,'success');setTimeout(()=>location.reload(),1500);}
+        else showMsg('❌ '+d.error,'danger');
+    });
+}
+
+function showMsg(msg,type){
+    document.getElementById('transferMsg').innerHTML = '<div class="alert alert-'+type+' py-2 mb-0">'+msg+'</div>';
+}
+</script>
+{% endblock %}

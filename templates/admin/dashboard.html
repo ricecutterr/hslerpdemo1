@@ -1,0 +1,277 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Dashboard - HSL ERP{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<style>
+.widget{background:#fff;border-radius:10px;padding:16px;height:100%;position:relative;border:2px solid transparent;transition:all .2s}
+.widget:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.editing .widget{border:2px dashed #ccc;cursor:grab}
+.editing .widget:hover{border-color:#61993B}
+.editing .widget.sortable-ghost{opacity:.4;border-color:#61993B}
+.editing .widget.sortable-chosen{box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.widget-remove{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:#dc3545;color:#fff;border:none;font-size:12px;display:none;cursor:pointer;line-height:22px;text-align:center;z-index:5}
+.editing .widget-remove{display:block}
+.stat-card{text-align:center}
+.stat-card .stat-value{font-size:1.8rem;font-weight:800;line-height:1}
+.stat-card .stat-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+.config-panel{background:#1D2F34;color:#fff;border-radius:10px;padding:16px;margin-bottom:16px}
+.add-widget-btn{background:rgba(255,255,255,.1);border:2px dashed rgba(255,255,255,.3);border-radius:8px;padding:6px 12px;color:#fff;cursor:pointer;font-size:.8rem;display:inline-block;margin:3px;transition:all .2s}
+.add-widget-btn:hover{background:rgba(97,153,59,.3);border-color:#61993B}
+.add-widget-btn.active{opacity:.4;pointer-events:none;text-decoration:line-through}
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
+    <button class="btn btn-outline-secondary btn-sm" id="editBtn" onclick="toggleEdit()">
+        <i class="bi bi-gear me-1"></i>Personalizează
+    </button>
+</div>
+
+<!-- Period filter -->
+<div class="bg-white rounded-3 p-2 px-3 mb-3 d-flex align-items-center gap-2 flex-wrap">
+    <i class="bi bi-calendar3 text-muted"></i>
+    <strong class="small me-2" style="color:#1D2F34">{{ p_label }}</strong>
+    <div class="btn-group btn-group-sm">
+        <a href="/admin?period=saptamana_curenta" class="btn btn-{% if period=='saptamana_curenta' %}hsl{% else %}outline-secondary{% endif %}">Săpt. curentă</a>
+        <a href="/admin?period=luna_curenta" class="btn btn-{% if period=='luna_curenta' %}hsl{% else %}outline-secondary{% endif %}">Luna curentă</a>
+        <a href="/admin?period=ultima_luna" class="btn btn-{% if period=='ultima_luna' %}hsl{% else %}outline-secondary{% endif %}">Luna trecută</a>
+        <a href="/admin?period=an_curent" class="btn btn-{% if period=='an_curent' %}hsl{% else %}outline-secondary{% endif %}">An curent</a>
+        <a href="/admin?period=an_trecut" class="btn btn-{% if period=='an_trecut' %}hsl{% else %}outline-secondary{% endif %}">An trecut</a>
+    </div>
+    <div class="d-flex align-items-center gap-1 ms-2">
+        <input type="date" id="pStart" class="form-control form-control-sm" style="width:130px" value="{{ p_start }}">
+        <span class="text-muted small">–</span>
+        <input type="date" id="pEnd" class="form-control form-control-sm" style="width:130px" value="{{ p_end }}">
+        <button class="btn btn-hsl btn-sm" onclick="applyCustom()"><i class="bi bi-search"></i></button>
+    </div>
+</div>
+
+<!-- Config panel (hidden by default) -->
+<div class="config-panel" id="configPanel" style="display:none">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold mb-0"><i class="bi bi-plus-circle me-2"></i>Adaugă Widget-uri</h6>
+        <button class="btn btn-success btn-sm" onclick="toggleEdit()"><i class="bi bi-check-lg me-1"></i>Gata</button>
+    </div>
+    <div id="widgetPalette">
+    {% for w in available_widgets %}
+    <span class="add-widget-btn {% if w.id in active_widgets %}active{% endif %}" 
+          data-wid="{{ w.id }}" onclick="addWidget('{{ w.id }}')">
+        <i class="{{ w.icon }} me-1"></i>{{ w.name }}
+    </span>
+    {% endfor %}
+    </div>
+    <div class="mt-2 small opacity-50">Trage widget-urile pentru a le reordona. Click pe ✕ pentru a le scoate.</div>
+</div>
+
+<!-- Widgets grid -->
+<div class="row g-3" id="widgetGrid">
+{% for wid in active_widgets %}
+<div class="{% if wid.startswith('stat_') %}col-md-2 col-6{% elif wid == 'chart_vanzari' %}col-12{% else %}col-md-6{% endif %} widget-col" data-wid="{{ wid }}">
+<div class="widget">
+    <button class="widget-remove" onclick="removeWidget('{{ wid }}')" title="Scoate">✕</button>
+
+    {% if wid == 'stat_vanzari_firma' %}
+    <div class="stat-card"><div class="stat-value" style="color:#61993B">{{ '{:,.0f}'.format(data.get('vanzari_luna',0)) }}€</div>
+    <div class="stat-label"><i class="bi bi-building me-1"></i>Vânzări Firmă</div></div>
+
+    {% elif wid == 'stat_vanzari_mele' %}
+    <div class="stat-card"><div class="stat-value" style="color:#0d6efd">{{ '{:,.0f}'.format(data.get('vanzari_proprii',0)) }}€</div>
+    <div class="stat-label"><i class="bi bi-person-check me-1"></i>Vânzările Mele</div></div>
+
+    {% elif wid == 'stat_comision' %}
+    <div class="stat-card"><div class="stat-value" style="color:#0dcaf0">{{ '{:,.0f}'.format(data.get('comision_luna',0)) }}€</div>
+    <div class="stat-label"><i class="bi bi-piggy-bank me-1"></i>Comision ({{ data.get('comision_procent',0) }}%)</div></div>
+
+    {% elif wid == 'stat_comenzi' %}
+    <div class="stat-card"><div class="stat-value" style="color:#fd7e14">{{ data.get('comenzi_active',0) }}</div>
+    <div class="stat-label"><i class="bi bi-cart-check me-1"></i>Comenzi Active</div></div>
+
+    {% elif wid == 'stat_activitati' %}
+    <div class="stat-card"><div class="stat-value" style="color:#6f42c1">{{ data.get('activitati_deschise',0) }}</div>
+    <div class="stat-label"><i class="bi bi-kanban me-1"></i>Activități</div></div>
+
+    {% elif wid == 'stat_facturi' %}
+    <div class="stat-card"><div class="stat-value" style="color:#fd7e14">{{ data.get('proforme_neplatite',0) }}</div>
+    <div class="stat-label"><i class="bi bi-file-earmark-text me-1"></i>Proforme Neplătite</div>
+    <div class="stat-sub" style="font-size:.7rem;color:#888;margin-top:2px">{{ data.get('facturi_neincasate',0) }} facturi fiscale neîncasate</div></div>
+
+    {% elif wid == 'stat_marja_firma' %}
+    <div class="stat-card"><div class="stat-value" style="color:#198754">{{ '{:,.0f}'.format(data.get('marja_firma',0)) }}€</div>
+    <div class="stat-label"><i class="bi bi-graph-up-arrow me-1"></i>Marjă Firmă ({{ data.get('marja_firma_pct',0) }}%)</div></div>
+
+    {% elif wid == 'stat_marja_mea' %}
+    <div class="stat-card"><div class="stat-value" style="color:#20c997">{{ '{:,.0f}'.format(data.get('marja_mea',0)) }}€</div>
+    <div class="stat-label"><i class="bi bi-person-lines-fill me-1"></i>Marja Mea ({{ data.get('marja_mea_pct',0) }}%)</div></div>
+
+    {% elif wid == 'stat_curs' %}
+    <div class="stat-card">
+        <div class="stat-value" style="color:#1D2F34">{{ '{:.4f}'.format(data.get('curs_bt',0)) }}</div>
+        <div class="stat-label"><i class="bi bi-currency-exchange me-1"></i>Curs EUR/RON {% if data.get('curs_data') %}· {{ data.get('curs_data') }}{% endif %}</div>
+        <div class="stat-sub" style="font-size:.7rem;color:#888;margin-top:2px">BNR: {{ '{:.4f}'.format(data.get('curs_bnr',0)) }} × 1.01 · {{ data.get('curs_sursa','') }}</div>
+    </div>
+
+    {% elif wid == 'chart_vanzari' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-graph-up me-2"></i>Vânzări · {{ p_label }}</h6>
+    <div style="height:200px"><canvas id="salesChart"></canvas></div>
+
+    {% elif wid == 'followups' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-bell me-2"></i>Follow-ups de Făcut</h6>
+    {% for fu, of in data.get('followups_due', []) %}
+    <div class="d-flex justify-content-between py-1 {% if not loop.last %}border-bottom{% endif %}" style="cursor:pointer" onclick="location.href='/admin/oferta/{{ of.id }}'">
+        <div class="small">
+            {% if fu.next_date < today %}<i class="bi bi-exclamation-triangle text-danger me-1"></i>{% endif %}
+            <strong>{{ of.numar }}</strong> {{ of.client.nume if of.client else '' }}
+        </div>
+        <small class="text-muted">{{ fu.next_date.strftime('%d.%m') }}</small>
+    </div>
+    {% else %}<p class="text-muted small text-center py-2">Niciun follow-up</p>{% endfor %}
+
+    {% elif wid == 'activitati_mele' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-list-task me-2"></i>Activitățile Mele</h6>
+    {% for a in data.get('activitati', []) %}
+    <div class="d-flex justify-content-between py-1 {% if not loop.last %}border-bottom{% endif %}" style="cursor:pointer" onclick="location.href='/admin/activitati/{{ a.id }}'">
+        <div class="small">
+            <span class="badge bg-{% if a.prioritate=='urgenta' %}danger{% elif a.prioritate=='ridicata' %}warning text-dark{% else %}secondary{% endif %} me-1" style="font-size:.6rem">{{ a.prioritate[:3]|upper }}</span>
+            {{ a.titlu[:40] }}
+        </div>
+        {% if a.deadline %}<small class="{% if a.deadline < today %}text-danger{% else %}text-muted{% endif %}">{{ a.deadline.strftime('%d.%m') }}</small>{% endif %}
+    </div>
+    {% else %}<p class="text-muted small text-center py-2">Nicio activitate</p>{% endfor %}
+
+    {% elif wid == 'pipeline' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-funnel me-2"></i>Pipeline Oferte</h6>
+    {% set status_colors = {'draft':'secondary','trimisa':'info','acceptata':'success','refuzata':'danger','expirata':'warning','comanda':'primary'} %}
+    {% set max_count = data.get('pipeline',{}).values()|map(attribute='count')|max if data.get('pipeline') else 1 %}
+    {% for s, d in data.get('pipeline',{}).items() %}
+    <div class="mb-2">
+        <div class="d-flex justify-content-between small"><span>{{ s|title }}</span><strong>{{ d.count }} ({{ '{:,.0f}'.format(d.total) }}€)</strong></div>
+        <div class="progress" style="height:6px"><div class="progress-bar bg-{{ status_colors.get(s,'secondary') }}" style="width:{{ (d.count/max_count*100)|int }}%"></div></div>
+    </div>
+    {% else %}<p class="text-muted small text-center py-2">Nicio ofertă</p>{% endfor %}
+
+    {% elif wid == 'oferte_recente' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-file-text me-2"></i>Oferte Recente</h6>
+    {% for o in data.get('oferte_recente', []) %}
+    <div class="d-flex justify-content-between py-1 {% if not loop.last %}border-bottom{% endif %}" style="cursor:pointer" onclick="location.href='/admin/oferta/{{ o.id }}'">
+        <div class="small"><strong>{{ o.numar }}</strong> {{ o.client.nume[:20] if o.client else '' }}</div>
+        <small class="fw-bold">{{ '{:,.0f}'.format(o.total) }}€</small>
+    </div>
+    {% else %}<p class="text-muted small text-center py-2">Nicio ofertă</p>{% endfor %}
+
+    {% elif wid == 'comenzi_recente' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-cart me-2"></i>Comenzi Recente</h6>
+    {% for c in data.get('comenzi_recente', []) %}
+    <div class="d-flex justify-content-between py-1 {% if not loop.last %}border-bottom{% endif %}" style="cursor:pointer" onclick="location.href='/admin/comanda/{{ c.id }}'">
+        <div class="small"><strong>{{ c.numar }}</strong> {{ c.client.nume[:20] if c.client else '' }}</div>
+        <small class="fw-bold">{{ '{:,.0f}'.format(c.total) }}€</small>
+    </div>
+    {% else %}<p class="text-muted small text-center py-2">Nicio comandă</p>{% endfor %}
+
+    {% elif wid == 'stoc_overview' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-box-seam me-2"></i>Stoc Depozit (Top 10)</h6>
+    {% for s in data.get('stoc_top', []) %}
+    <div class="d-flex justify-content-between py-1 {% if not loop.last %}border-bottom{% endif %}">
+        <div class="small"><strong>{{ s.cod_intern }}</strong> <span class="text-muted">{{ (s.den or '')[:25] }}</span></div>
+        <div class="small"><span class="badge bg-light text-dark">{{ s.qty|int }} buc</span> <strong>{{ '{:,.0f}'.format(s.val or 0) }}€</strong></div>
+    </div>
+    {% else %}<p class="text-muted small text-center py-2">Stoc gol</p>{% endfor %}
+
+    {% elif wid == 'alerte_stoc' %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Alerte Stoc Minim</h6>
+    {% for a in data.get('alerte_stoc', []) %}
+    <div class="d-flex justify-content-between py-1 {% if not loop.last %}border-bottom{% endif %}">
+        <div class="small"><strong>{{ a.cod_intern }}</strong> <span class="text-muted">{{ (a.denumire or '')[:25] }}</span></div>
+        <div class="small">
+            <span class="badge bg-danger">{{ a.stoc_actual|int }} / {{ a.prag_minim|int }}</span>
+        </div>
+    </div>
+    {% else %}<p class="text-success small text-center py-2"><i class="bi bi-check-circle me-1"></i>Toate stocurile OK</p>{% endfor %}
+
+    {% endif %}
+</div>
+</div>
+{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyCustom(){
+    const s = document.getElementById('pStart').value;
+    const e = document.getElementById('pEnd').value;
+    if(s && e) location.href = '/admin?period=custom&start='+s+'&end='+e;
+}
+
+const today = new Date();
+let editing = false;
+let sortable = null;
+
+function toggleEdit(){
+    editing = !editing;
+    document.getElementById('configPanel').style.display = editing ? '' : 'none';
+    document.getElementById('widgetGrid').classList.toggle('editing', editing);
+    document.getElementById('editBtn').innerHTML = editing ?
+        '<i class="bi bi-check-lg me-1"></i>Gata' :
+        '<i class="bi bi-gear me-1"></i>Personalizează';
+    if(editing && !sortable){
+        sortable = new Sortable(document.getElementById('widgetGrid'), {
+            animation: 200,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            handle: '.widget',
+            onEnd: saveConfig
+        });
+    }
+    if(!editing) saveConfig();
+}
+
+function getActiveWidgets(){
+    return Array.from(document.querySelectorAll('#widgetGrid .widget-col')).map(el => el.dataset.wid);
+}
+
+function saveConfig(){
+    const widgets = getActiveWidgets();
+    fetch('/api/dashboard/save-config',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({widgets})
+    });
+    // Update palette
+    document.querySelectorAll('#widgetPalette .add-widget-btn').forEach(btn => {
+        btn.classList.toggle('active', widgets.includes(btn.dataset.wid));
+    });
+}
+
+function removeWidget(wid){
+    const el = document.querySelector(`.widget-col[data-wid="${wid}"]`);
+    if(el){el.remove();saveConfig();}
+}
+
+function addWidget(wid){
+    const current = getActiveWidgets();
+    if(current.includes(wid)) return;
+    // Reload page with new widget
+    current.push(wid);
+    fetch('/api/dashboard/save-config',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({widgets:current})
+    }).then(() => location.reload());
+}
+
+// Sales chart
+{% if 'chart_vanzari' in active_widgets and data.get('vanzari_lunare') %}
+document.addEventListener('DOMContentLoaded', ()=>{
+    const ctx = document.getElementById('salesChart');
+    if(!ctx) return;
+    new Chart(ctx, {type:'bar',
+        data:{labels:{{ data.vanzari_lunare|map(attribute='luna')|list|tojson }},
+            datasets:[
+                {label:'Firmă',data:{{ data.vanzari_lunare|map(attribute='total')|list|tojson }},backgroundColor:'rgba(97,153,59,.25)',borderColor:'#61993B',borderWidth:2},
+                {label:'Proprii',data:{{ data.vanzari_lunare|map(attribute='proprii')|list|tojson }},backgroundColor:'rgba(13,110,253,.7)',borderColor:'#0d6efd',borderWidth:1}
+            ]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}}},
+            scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString()+'€'}}}}
+    });
+});
+{% endif %}
+</script>
+{% endblock %}

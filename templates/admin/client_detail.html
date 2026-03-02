@@ -1,0 +1,107 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ client.nume }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-person me-2"></i>{{ client.nume }}</h2>
+    <div><a href="/admin/clienti/{{ client.id }}" class="btn btn-outline-primary me-2"><i class="bi bi-pencil"></i> Editează</a>
+    <a href="/configurator" class="btn btn-hsl"><i class="bi bi-gear me-1"></i>Ofertă Nouă</a></div>
+</div>
+<div class="row g-4">
+<div class="col-md-4"><div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold mb-3">Date Client</h6>
+    <p><strong>CUI:</strong> {{ client.cui or '-' }}<br><strong>Nr. Reg:</strong> {{ client.nr_reg_com or '-' }}</p>
+    <p><strong>Email:</strong> {{ client.email or '-' }}<br><strong>Tel:</strong> {{ client.telefon or '-' }}</p>
+    <p><strong>Adresă:</strong> {{ client.adresa or '-' }}<br>{{ client.oras or '' }} {{ client.judet or '' }}</p>
+</div>
+<!-- LISTĂ PREȚURI -->
+<div class="bg-white rounded-3 p-3 mt-3">
+    <h6 class="fw-bold mb-3">💰 Listă Prețuri</h6>
+    {% if client.sablon_pret %}
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="badge bg-success">{{ client.sablon_pret.nume }}</span>
+        <small class="text-muted">Discount global: {{ client.sablon_pret.discount_global }}%</small>
+    </div>
+    {% set reguli = client.sablon_pret.reguli %}
+    {% if reguli.get('categorii') and reguli['categorii']|length > 0 %}
+    <small class="text-muted d-block">Per categorie: {{ reguli['categorii']|length }} reguli</small>
+    {% endif %}
+    {% if reguli.get('produse') and reguli['produse']|length > 0 %}
+    <small class="text-muted d-block">Per produs: {{ reguli['produse']|length }} reguli</small>
+    {% endif %}
+    <button class="btn btn-outline-secondary btn-sm mt-2" onclick="document.getElementById('price-preview').style.display=document.getElementById('price-preview').style.display==='none'?'':'none'">
+        👁 Preview Prețuri</button>
+    <div id="price-preview" style="display:none;max-height:300px;overflow-y:auto" class="mt-2">
+        <table class="table table-sm" style="font-size:.8rem">
+        <thead><tr><th>Produs</th><th>Lista HSL</th><th>Disc.</th><th>Preț Client</th><th>Min.</th></tr></thead>
+        <tbody id="price-preview-body"></tbody>
+        </table>
+    </div>
+    <script>
+    document.querySelector('[onclick*="price-preview"]').addEventListener('click', async function(){
+        const tb=document.getElementById('price-preview-body');
+        if(tb.innerHTML) return;
+        const r=await fetch('/api/cfg/configurator/client-preturi/{{ client.id }}');
+        const d=await r.json();
+        if(!d.has_sablon){tb.innerHTML='<tr><td colspan="5">Fără șablon</td></tr>';return;}
+        const prodR=await fetch('/api/cfg/produse');
+        const prods=await prodR.json();
+        let html='';
+        prods.forEach(p=>{
+            const info=d.discounts[p.id];
+            if(!info)return;
+            const isMin=info.pret_client<=info.pret_minim+0.01;
+            html+=`<tr${isMin?' style="background:#fff3cd"':''}>
+                <td>${p.cod}</td><td>${info.pret_lista.toFixed(2)}</td>
+                <td class="text-danger">-${info.discount.toFixed(1)}%</td>
+                <td class="fw-bold">${info.pret_client.toFixed(2)}</td>
+                <td class="text-muted">${info.pret_minim.toFixed(2)}</td></tr>`;
+        });
+        tb.innerHTML=html||'<tr><td colspan="5">Niciun produs</td></tr>';
+    });
+    </script>
+    {% else %}
+    <p class="text-muted small mb-0">Prețuri standard (listă HSL). <a href="/admin/clienti/{{ client.id }}">Atribuie un șablon</a></p>
+    {% endif %}
+</div>
+</div>
+<div class="col-md-8">
+    <!-- OFERTE -->
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">📋 Oferte ({{ client.oferte.count() }})</h6>
+        {% for o in client.oferte.all() %}
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <a href="/admin/oferte/{{ o.id }}">{{ o.numar }}</a>
+            <span>{{ '{:,.2f}'.format(o.total) }} {{ o.moneda }}</span>
+            <span class="badge bg-{% if o.status=='acceptata' %}success{% elif o.status=='comanda' %}primary{% else %}secondary{% endif %}">{{ o.status|title }}</span>
+        </div>{% endfor %}
+    </div>
+    <!-- COMENZI -->
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">🛒 Comenzi ({{ client.comenzi.count() }})</h6>
+        {% for c in client.comenzi.all() %}
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <a href="/admin/comenzi/{{ c.id }}">{{ c.numar }}</a>
+            <span>{{ '{:,.2f}'.format(c.total) }} {{ c.moneda }}</span>
+            <span class="badge bg-{% if c.status=='finalizata' %}success{% else %}primary{% endif %}">{{ c.status_display }}</span>
+        </div>{% endfor %}
+    </div>
+    <!-- FACTURI -->
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold">🧾 Proforme</h6>
+        {% for f in client.facturi.all() if f.tip == 'proforma' %}
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <a href="/admin/facturi/{{ f.id }}">{{ f.numar_complet }}</a>
+            <span>{{ '{:,.2f}'.format(f.total) }} {{ f.moneda }}</span>
+            <span class="badge bg-{% if f.status=='incasata' %}success{% elif f.status=='confirmata' %}info{% elif f.status=='partial' %}info{% else %}warning{% endif %}">{{ 'Plătită' if f.status=='incasata' else 'Confirmată' if f.status=='confirmata' else 'Neplătită' }}</span>
+        </div>{% else %}<p class="text-muted small">Nicio proformă.</p>{% endfor %}
+        
+        <h6 class="fw-bold mt-3">🧾 Facturi Fiscale</h6>
+        {% for f in client.facturi.all() if f.tip == 'fiscala' %}
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <a href="/admin/facturi/{{ f.id }}">{{ f.numar_complet }}</a>
+            <span>{{ '{:,.2f}'.format(f.total) }} {{ f.moneda }}</span>
+            <span class="badge bg-{% if f.status=='incasata' %}success{% else %}warning{% endif %}">{{ f.status|title }}</span>
+        </div>{% else %}<p class="text-muted small">Nicio factură fiscală.</p>{% endfor %}
+    </div>
+</div></div>
+{% endblock %}

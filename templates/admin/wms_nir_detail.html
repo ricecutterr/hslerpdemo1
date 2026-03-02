@@ -1,0 +1,322 @@
+{% extends 'admin/layout.html' %}
+{% block title %}NIR {{ nir.numar }} - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.ver-line{padding:10px;border:2px solid #e9ecef;border-radius:8px;margin-bottom:8px;transition:all .3s}
+.ver-line.done{border-color:#198754;background:#f0fdf4}
+.ver-line.partial{border-color:#fd7e14;background:#fff8f0}
+.ver-line.active-scan{border-color:#61993B;background:#fffde7;box-shadow:0 0 12px rgba(97,153,59,.3)}
+.scan-box{background:linear-gradient(135deg,#1D2F34,#243d44);color:white;border-radius:10px;padding:16px}
+.scan-input{font-size:1.3rem;font-weight:bold;border:3px solid #61993B;border-radius:8px;text-align:center}
+.scan-input:focus{box-shadow:0 0 0 4px rgba(97,153,59,.4);border-color:#61993B}
+.step-badge{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem}
+.step-active{background:#61993B;color:white}
+.step-done{background:#198754;color:white}
+.step-pending{background:#dee2e6;color:#6c757d}
+.ver-entry{font-size:.8rem;padding:2px 6px;background:#e8f5e9;border-radius:4px;display:inline-block;margin:2px}
+</style>
+{% endblock %}
+{% block content %}
+{% set v, t = nir.progres_verificare %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-clipboard-check me-2"></i>{{ nir.numar }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            <span class="badge bg-{% if nir.status=='draft' %}secondary{% elif nir.status=='scriptic' %}info{% elif nir.status=='in_verificare' %}warning text-dark{% else %}success{% endif %} fs-6">{{ nir.status_display }}</span>
+            {% if t > 0 %}<span class="badge bg-{% if v==t %}success{% else %}light text-dark{% endif %} fs-6" id="progBadge">{{ v }}/{{ t }} complete</span>{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        {% if nir.status == 'scriptic' %}
+        <button class="btn btn-warning" onclick="confirmaScriptic()"><i class="bi bi-check2-circle me-1"></i>Confirmă & Intrare Stoc</button>
+        {% endif %}
+        {% if nir.status in ('draft','scriptic') %}
+        <button class="btn btn-outline-danger" onclick="stergeNir()"><i class="bi bi-trash me-1"></i>Șterge</button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+<!-- LEFT -->
+<div class="col-md-4">
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">Detalii</h6>
+        <p><strong>Furnizor:</strong> {{ nir.furnizor.nume if nir.furnizor else '-' }}</p>
+        <p><strong>Factură:</strong> {{ nir.numar_factura_furnizor or '-' }}
+        {% if nir.data_factura_furnizor %}<br>{{ nir.data_factura_furnizor.strftime('%d.%m.%Y') }}{% endif %}</p>
+        <p><strong>Creat de:</strong> {{ nir.creat_de.nume_complet if nir.creat_de else '-' }}</p>
+        <div class="p-2 rounded text-center" style="background:#1D2F34;color:white">
+            <small>TOTAL ACHIZIȚIE</small><br>
+            <strong class="fs-5">{{ '{:,.2f}'.format(nir.total_achizitie) }} €</strong>
+        </div>
+        {% if t > 0 %}
+        <div class="mt-3">
+            <div class="progress" style="height:20px">
+                <div class="progress-bar bg-{% if v==t %}success{% else %}warning{% endif %}" id="progBar" style="width:{{ (v/t*100)|int }}%">
+                    <span id="progText">{{ v }}/{{ t }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if nir.status == 'in_verificare' %}
+    <div class="scan-box">
+        <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-2"></i>Scanner</h6>
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="step-badge step-active" id="step1">1</div><small>Produs</small>
+            <i class="bi bi-arrow-right"></i>
+            <div class="step-badge step-pending" id="step2">2</div><small>Celulă</small>
+            <i class="bi bi-arrow-right"></i>
+            <div class="step-badge step-pending" id="step3">3</div><small>✓</small>
+        </div>
+        <input id="scanInput" class="form-control scan-input mb-3" placeholder="Scanează..." autofocus autocomplete="off">
+        <div id="scanStatus" class="mb-2">
+            <span class="opacity-75"><i class="bi bi-arrow-up me-1"></i>Scanează codul produsului</span>
+        </div>
+        <div id="scanDetails" style="display:none">
+            <div class="border rounded p-2" style="background:rgba(255,255,255,.1)">
+                <div class="small"><strong>Produs:</strong> <span id="sdProdus">-</span></div>
+                <div class="small"><strong>Celulă:</strong> <span id="sdCelula">-</span></div>
+                <div class="small"><strong>Rămas de verificat:</strong> <span id="sdRest">-</span></div>
+                <div class="small mt-1"><strong>Cantitate:</strong>
+                    <input id="sdCant" type="number" step="1" min="1" class="form-control form-control-sm d-inline" style="width:80px;background:rgba(255,255,255,.9);color:#000">
+                </div>
+                <button class="btn btn-success btn-sm w-100 mt-2" id="btnConfirm" onclick="confirmVerify()" style="display:none">
+                    <i class="bi bi-check-lg me-1"></i>Confirmă
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- RIGHT -->
+<div class="col-md-8"><div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold mb-3">Linii Recepție</h6>
+    {% for l in nir.linii %}
+    <div class="ver-line {% if l.verificat_complet %}done{% elif l.cantitate_verificata > 0 %}partial{% endif %}"
+         id="vl-{{ l.id }}"
+         data-lid="{{ l.id }}"
+         data-cod="{{ l.cod_intern }}"
+         data-ean="{{ l.cod_ean or '' }}"
+         data-codfurn="{{ l.cod_furnizor or '' }}"
+         data-cant="{{ l.cantitate }}"
+         data-rest="{{ l.rest_de_verificat }}"
+         data-den="{{ l.denumire_intern or l.denumire_furnizor or '' }}"
+         data-complet="{{ '1' if l.verificat_complet else '0' }}">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                {% if l.verificat_complet %}
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                {% elif l.cantitate_verificata > 0 %}
+                <i class="bi bi-circle-half text-warning fs-5" id="icon-{{ l.id }}"></i>
+                {% else %}
+                <i class="bi bi-circle text-muted fs-5" id="icon-{{ l.id }}"></i>
+                {% endif %}
+                <div>
+                    <strong>{{ l.cod_intern }}</strong>
+                    <span class="small text-muted">{{ l.denumire_intern or l.denumire_furnizor or '' }}</span>
+                    {% if l.cod_furnizor %}<br><small class="text-muted">Furnizor: {{ l.cod_furnizor }}</small>{% endif %}
+                    {% if l.cod_ean %}<small class="text-muted ms-2">EAN: {{ l.cod_ean }}</small>{% endif %}
+                </div>
+            </div>
+            <div class="text-end">
+                <strong>{{ l.cantitate }} {{ l.um }}</strong>
+                <span class="text-muted small">× {{ '{:,.2f}'.format(l.pret_achizitie) }}€</span>
+            </div>
+        </div>
+
+        <!-- Verification entries -->
+        {% if l.verificari %}
+        <div class="mt-2" id="ver-entries-{{ l.id }}">
+            {% for ver in l.verificari %}
+            <span class="ver-entry">
+                📍 {{ ver.celula.cod if ver.celula else 'N/A' }}: <strong>{{ ver.cantitate|int }}</strong> buc
+            </span>
+            {% endfor %}
+            <div class="small mt-1">
+                <span class="{% if l.verificat_complet %}text-success{% else %}text-warning{% endif %} fw-bold">
+                    {{ l.cantitate_verificata|int }}/{{ l.cantitate|int }} verificate
+                </span>
+                {% if l.rest_de_verificat > 0 %}
+                <span class="text-muted">— mai rămân {{ l.rest_de_verificat|int }}</span>
+                {% endif %}
+                {% if l.verificat_complet and l.discrepanta %}
+                <span class="badge bg-danger ms-1">⚠ Diferență cantitate</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script>
+const CELULE = {};
+{% for c in celule %}CELULE['{{ c.cod }}'] = {{ c.id }};CELULE['{{ c.barcode or c.cod }}'] = {{ c.id }};
+{% endfor %}
+
+let scanState = 'product';
+let currentLine = null;
+let currentCelulaId = null;
+let currentCelulaCod = '';
+
+const inp = document.getElementById('scanInput');
+if(inp) inp.addEventListener('keypress', e=>{if(e.key==='Enter'){e.preventDefault();processScan();}});
+
+function processScan(){
+    const val = inp.value.trim();
+    inp.value = '';
+    if(!val) return;
+
+    if(scanState === 'product'){
+        // Find line with remaining qty (not fully verified)
+        const lines = document.querySelectorAll('.ver-line[data-complet="0"]');
+        let found = null;
+        lines.forEach(el => {
+            if(el.dataset.cod === val || el.dataset.ean === val || el.dataset.codfurn === val){
+                found = el;
+            }
+        });
+        if(!found){
+            setStatus('❌ Codul "'+val+'" nu are linii cu rest de verificat.', 'danger');
+            return;
+        }
+        document.querySelectorAll('.ver-line').forEach(el => el.classList.remove('active-scan'));
+        found.classList.add('active-scan');
+        found.scrollIntoView({behavior:'smooth', block:'center'});
+
+        currentLine = found;
+        const rest = parseFloat(found.dataset.rest);
+        document.getElementById('sdProdus').textContent = found.dataset.cod + ' - ' + found.dataset.den;
+        document.getElementById('sdCelula').textContent = 'Așteaptă scan...';
+        document.getElementById('sdRest').textContent = rest + ' din ' + found.dataset.cant;
+        document.getElementById('sdCant').value = rest;
+        document.getElementById('sdCant').max = rest;
+        document.getElementById('scanDetails').style.display = '';
+        document.getElementById('btnConfirm').style.display = 'none';
+
+        setStep(2);
+        scanState = 'cell';
+        setStatus('✅ Produs găsit! Rest: '+rest+'. Scanează celula.', 'success');
+    } else if(scanState === 'cell'){
+        const celulaId = CELULE[val];
+        if(!celulaId){
+            setStatus('❌ Celula "'+val+'" nu există.', 'danger');
+            return;
+        }
+        currentCelulaId = celulaId;
+        currentCelulaCod = val;
+        document.getElementById('sdCelula').textContent = val;
+        document.getElementById('btnConfirm').style.display = '';
+
+        setStep(3);
+        scanState = 'confirm';
+        setStatus('✅ Celula: '+val+'. Verifică cantitatea și Confirmă.', 'success');
+    }
+    inp.focus();
+}
+
+function confirmVerify(){
+    if(!currentLine) return;
+    const lid = currentLine.dataset.lid;
+    const cant = parseFloat(document.getElementById('sdCant').value) || 0;
+    if(cant <= 0) return alert('Cantitatea trebuie > 0');
+
+    fetch('/api/wms/nir/linie/'+lid+'/verifica',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cantitate: cant, celula_id: currentCelulaId})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){
+            // Add verification entry visually
+            let entries = document.getElementById('ver-entries-'+lid);
+            if(!entries){
+                entries = document.createElement('div');
+                entries.className = 'mt-2';
+                entries.id = 'ver-entries-'+lid;
+                currentLine.appendChild(entries);
+            }
+            const badge = document.createElement('span');
+            badge.className = 'ver-entry';
+            badge.innerHTML = '📍 '+currentCelulaCod+': <strong>'+cant+'</strong> buc';
+            // Remove old summary if exists
+            const oldSummary = entries.querySelector('.ver-summary');
+            if(oldSummary) oldSummary.remove();
+            entries.appendChild(badge);
+
+            // Add/update summary
+            const summary = document.createElement('div');
+            summary.className = 'small mt-1 ver-summary';
+            const complet = d.linie_complet;
+            summary.innerHTML = '<span class="'+(complet?'text-success':'text-warning')+' fw-bold">'+
+                d.linie_cant_verificata+'/'+d.linie_cant_asteptata+' verificate</span>'+
+                (d.linie_rest > 0 ? ' <span class="text-muted">— mai rămân '+d.linie_rest+'</span>' : '');
+            entries.appendChild(summary);
+
+            // Update line state
+            if(complet){
+                currentLine.classList.remove('active-scan','partial');
+                currentLine.classList.add('done');
+                currentLine.dataset.complet = '1';
+                currentLine.dataset.rest = '0';
+                const icon = document.getElementById('icon-'+lid);
+                if(icon){icon.className='bi bi-check-circle-fill text-success fs-5';}
+            } else {
+                currentLine.classList.remove('active-scan');
+                currentLine.classList.add('partial');
+                currentLine.dataset.rest = d.linie_rest;
+                const icon = document.getElementById('icon-'+lid);
+                if(icon){icon.className='bi bi-circle-half text-warning fs-5';}
+            }
+
+            // Update progress
+            const bar = document.getElementById('progBar');
+            const txt = document.getElementById('progText');
+            const badge2 = document.getElementById('progBadge');
+            if(bar){bar.style.width=((d.verificat_linii/d.total_linii)*100)+'%';txt.textContent=d.verificat_linii+'/'+d.total_linii;}
+            if(badge2) badge2.textContent=d.verificat_linii+'/'+d.total_linii+' complete';
+            if(d.verificat_linii===d.total_linii && bar) bar.classList.replace('bg-warning','bg-success');
+
+            resetScan();
+            if(d.nir_status==='verificat'){
+                setTimeout(()=>{alert('✅ NIR complet verificat!');location.reload();},500);
+            } else {
+                setStatus('✅ Alocat '+cant+' buc pe '+currentCelulaCod+'. Scanează următorul produs.', 'success');
+            }
+        } else alert(d.error);
+    });
+}
+
+function resetScan(){
+    scanState = 'product';
+    currentLine = null;
+    currentCelulaId = null;
+    currentCelulaCod = '';
+    document.getElementById('scanDetails').style.display = 'none';
+    setStep(1);
+    inp.focus();
+}
+
+function setStep(n){
+    for(let i=1;i<=3;i++){
+        const el=document.getElementById('step'+i);
+        el.className='step-badge '+(i<n?'step-done':i===n?'step-active':'step-pending');
+    }
+}
+function setStatus(msg, type){
+    document.getElementById('scanStatus').innerHTML = '<span class="'+(type==='danger'?'text-danger':'text-success')+'">'+msg+'</span>';
+}
+
+function confirmaScriptic(){
+    if(!confirm('Confirmă NIR-ul și adaugă produsele în stoc?')) return;
+    fetch('/api/wms/nir/{{ nir.id }}/confirma-scriptic',{method:'POST',headers:{'Content-Type':'application/json'}})
+    .then(r=>r.json()).then(d=>{if(d.success){alert('Produse adăugate în stoc!');location.reload();}else alert(d.error)});
+}
+function stergeNir(){
+    if(!confirm('Sigur ștergi NIR-ul?')) return;
+    fetch('/api/wms/nir/{{ nir.id }}/sterge',{method:'POST',headers:{'Content-Type':'application/json'}})
+    .then(r=>r.json()).then(d=>{if(d.success)location.href='/admin/wms/niruri';else alert(d.error)});
+}
+</script>{% endblock %}

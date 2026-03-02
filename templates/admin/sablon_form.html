@@ -1,0 +1,111 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Editare Șablon' if sablon else 'Șablon Nou' }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-kanban me-2"></i>{{ 'Editare Șablon' if sablon else 'Șablon Nou' }}</h2>
+</div>
+<div class="bg-white rounded-3 p-4" style="max-width:800px">
+<form method="POST">
+    <div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label fw-bold">Nume Șablon *</label>
+        <input type="text" name="nume" class="form-control" value="{{ sablon.nume if sablon else '' }}" required placeholder="ex: Flux Comandă Standard">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label fw-bold">Trigger (când se aplică)</label>
+        <select name="trigger" class="form-select">
+            {% for val, label in [('manual','Manual (aplici de mână)'),('oferta_comanda','La convertire Ofertă → Comandă'),('comanda_confirmata','La confirmare Comandă'),('comanda_productie','La trecere în Producție'),('comanda_livrata','La livrare Comandă')] %}
+            <option value="{{ val }}" {{ 'selected' if sablon and sablon.trigger==val }}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12">
+        <label class="form-label">Descriere</label>
+        <input type="text" name="descriere" class="form-control" value="{{ sablon.descriere if sablon else '' }}" placeholder="Descriere opțională">
+    </div>
+    <div class="col-12">
+        <div class="form-check">
+            <input type="checkbox" name="activ" class="form-check-input" {{ 'checked' if not sablon or sablon.activ }}>
+            <label class="form-check-label">Activ</label>
+        </div>
+    </div>
+    </div>
+
+    <hr class="my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-list-task me-2"></i>Task-uri în Șablon</h5>
+        <button type="button" class="btn btn-sm btn-hsl" onclick="addLine()"><i class="bi bi-plus-lg me-1"></i>Adaugă Task</button>
+    </div>
+
+    <div id="lines">
+    {% if sablon %}
+    {% for l in sablon.linii %}
+    <div class="line-row border rounded p-2 mb-2 d-flex gap-2 align-items-start">
+        <span class="text-muted pt-2 line-nr">{{ loop.index0 }}.</span>
+        <div class="flex-grow-1">
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <input type="text" name="linie_titlu_{{ loop.index0 }}" class="form-control form-control-sm" value="{{ l.titlu }}" placeholder="Titlu task *" required>
+                </div>
+                <div class="col-md-3">
+                    <select name="linie_tip_{{ loop.index0 }}" class="form-select form-select-sm">
+                        <option value="">-- Fără tip --</option>
+                        {% for t in tipuri %}<option value="{{ t.id }}" {{ 'selected' if l.tip_id==t.id }}>{{ t.nume }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="linie_prio_{{ loop.index0 }}" class="form-select form-select-sm">
+                        {% for val, label in [('scazuta','Scăzută'),('normala','Normală'),('ridicata','Ridicată'),('urgenta','Urgentă')] %}
+                        <option value="{{ val }}" {{ 'selected' if l.prioritate==val }}>{{ label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.line-row').remove();reindex()"><i class="bi bi-x"></i></button>
+                </div>
+            </div>
+            <input type="text" name="linie_desc_{{ loop.index0 }}" class="form-control form-control-sm mt-1" value="{{ l.descriere or '' }}" placeholder="Descriere opțională">
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+    </div>
+
+    <div class="mt-4">
+        <button class="btn btn-hsl me-2"><i class="bi bi-check-lg me-1"></i>{{ 'Salvează' if sablon else 'Creează Șablon' }}</button>
+        <a href="/admin/activitati/config" class="btn btn-outline-secondary">Anulează</a>
+    </div>
+</form>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const tipuriData = [{% for t in tipuri %}{id:{{ t.id }},nume:'{{ t.nume }}'},{% endfor %}];
+let lineCount = document.querySelectorAll('.line-row').length;
+
+function addLine(){
+    const idx = lineCount++;
+    const tipOpts = tipuriData.map(t=>`<option value="${t.id}">${t.nume}</option>`).join('');
+    const html = `<div class="line-row border rounded p-2 mb-2 d-flex gap-2 align-items-start">
+        <span class="text-muted pt-2 line-nr">${idx}.</span>
+        <div class="flex-grow-1"><div class="row g-2">
+            <div class="col-md-5"><input type="text" name="linie_titlu_${idx}" class="form-control form-control-sm" placeholder="Titlu task *" required></div>
+            <div class="col-md-3"><select name="linie_tip_${idx}" class="form-select form-select-sm"><option value="">-- Fără tip --</option>${tipOpts}</select></div>
+            <div class="col-md-3"><select name="linie_prio_${idx}" class="form-select form-select-sm">
+                <option value="scazuta">Scăzută</option><option value="normala" selected>Normală</option>
+                <option value="ridicata">Ridicată</option><option value="urgenta">Urgentă</option></select></div>
+            <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.line-row').remove();reindex()"><i class="bi bi-x"></i></button></div>
+        </div>
+        <input type="text" name="linie_desc_${idx}" class="form-control form-control-sm mt-1" placeholder="Descriere opțională">
+        </div></div>`;
+    document.getElementById('lines').insertAdjacentHTML('beforeend', html);
+}
+
+function reindex(){
+    document.querySelectorAll('.line-row').forEach((row,i)=>{
+        row.querySelector('.line-nr').textContent = i+'.';
+        row.querySelectorAll('[name]').forEach(el=>{
+            el.name = el.name.replace(/_\d+$/, '_'+i);
+        });
+    });
+    lineCount = document.querySelectorAll('.line-row').length;
+}
+</script>{% endblock %}

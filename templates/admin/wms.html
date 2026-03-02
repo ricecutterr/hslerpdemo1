@@ -1,0 +1,73 @@
+{% extends 'admin/layout.html' %}
+{% block title %}WMS - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-box-seam me-2"></i>WMS Dashboard</h2>
+    <a href="/admin/wms/nir/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-1"></i>NIR Nou</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="bg-white rounded-3 p-3">
+            <h6 class="fw-bold"><i class="bi bi-clipboard-check me-2"></i>NIR-uri Recente</h6>
+            {% for n in niruri %}
+            <div class="d-flex justify-content-between align-items-center py-2 {% if not loop.last %}border-bottom{% endif %}" style="cursor:pointer" onclick="location.href='/admin/wms/nir/{{ n.id }}'">
+                <div>
+                    <strong class="small">{{ n.numar }}</strong>
+                    <div class="small text-muted">{{ n.furnizor.nume if n.furnizor else 'N/A' }}</div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-{% if n.status=='draft' %}secondary{% elif n.status=='scriptic' %}info{% elif n.status=='in_verificare' %}warning text-dark{% else %}success{% endif %}" style="font-size:.65rem">{{ n.status_display }}</span>
+                    {% set v, t = n.progres_verificare %}
+                    {% if t > 0 and n.status in ('in_verificare','verificat') %}
+                    <div class="small text-muted">{{ v }}/{{ t }} verificate</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}<p class="text-muted text-center small py-3">Niciun NIR</p>{% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="bg-white rounded-3 p-3">
+            <h6 class="fw-bold"><i class="bi bi-boxes me-2"></i>Stoc Curent</h6>
+            {% if stoc %}
+            <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Cod</th><th>Denumire</th><th>Locație</th><th>Cant.</th><th>Preț Mediu</th><th>Valoare</th></tr></thead>
+            <tbody>
+            {% for s in stoc %}
+            <tr>
+                <td class="fw-bold small">{{ s.cod_intern }}</td>
+                <td class="small">{{ s.denumire or '-' }}</td>
+                <td><span class="badge bg-light text-dark">{{ s.celula.cod if s.celula else 'Nealocat' }}</span></td>
+                <td class="fw-bold">{{ s.cantitate }}</td>
+                <td class="small">{{ '{:,.2f}'.format(s.pret_achizitie_mediu) }}€</td>
+                <td class="small fw-bold">{{ '{:,.2f}'.format(s.cantitate * s.pret_achizitie_mediu) }}€</td>
+            </tr>
+            {% endfor %}
+            </tbody></table>
+            {% else %}<p class="text-muted text-center small py-3">Niciun produs în stoc</p>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold"><i class="bi bi-arrow-left-right me-2"></i>Ultimele Mișcări</h6>
+    {% if miscari %}
+    <table class="table table-sm mb-0">
+    <thead><tr><th>Data</th><th>Tip</th><th>Produs</th><th>Cant.</th><th>Document</th><th>Utilizator</th></tr></thead>
+    <tbody>
+    {% for m in miscari %}
+    <tr>
+        <td class="small">{{ m.data.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td><span class="badge bg-{% if 'intrare' in m.tip %}success{% elif 'iesire' in m.tip %}danger{% else %}info{% endif %}" style="font-size:.65rem">{{ m.tip|replace('_',' ')|title }}</span></td>
+        <td class="small"><strong>{{ m.cod_produs }}</strong> {{ m.denumire_produs or '' }}</td>
+        <td class="fw-bold">{{ m.cantitate }}</td>
+        <td class="small">{{ m.numar_document or '-' }}</td>
+        <td class="small">{{ m.utilizator.nume_complet if m.utilizator else '-' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}<p class="text-muted text-center small py-3">Nicio mișcare</p>{% endif %}
+</div>
+{% endblock %}

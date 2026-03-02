@@ -1,0 +1,31 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Roluri - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-shield-lock me-2"></i>Roluri</h2>
+    <a href="/admin/roluri/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-1"></i>Rol Nou</a>
+</div>
+<div class="bg-white rounded-3 p-3">
+<table class="table table-hover">
+<thead><tr><th>Rol</th><th>Descriere</th><th>Doar proprii</th><th>Module</th><th>Utilizatori</th><th></th></tr></thead>
+<tbody>
+{% for r in roluri %}
+<tr>
+    <td class="fw-bold">{{ r.nume }}{% if r.is_system %} <span class="badge bg-danger">System</span>{% endif %}</td>
+    <td class="text-muted small">{{ r.descriere or '-' }}</td>
+    <td>{% if r.is_system %}<span class="text-muted">-</span>{% elif r.doar_proprii %}<span class="badge bg-warning text-dark">Da</span>{% else %}<span class="badge bg-info">Nu (vede tot)</span>{% endif %}</td>
+    <td>{% if r.is_system %}<span class="text-success">Acces complet</span>{% else %}
+        {% set perms = r.get_permisiuni() %}
+        {% for key, label, icon, grp in MODULES %}
+            {% if perms.get(key) %}<span class="badge bg-light text-dark border me-1 mb-1" style="font-size:.7rem"><i class="{{ icon }} me-1"></i>{{ label.split('(')[0].strip() }}</span>{% endif %}
+        {% endfor %}
+        {% if not perms %}<span class="text-muted small">Niciun modul</span>{% endif %}
+    {% endif %}</td>
+    <td><span class="badge bg-secondary">{{ r.utilizatori.count() }}</span></td>
+    <td>{% if not r.is_system %}<a href="/admin/roluri/{{ r.id }}" class="btn btn-outline-primary btn-sm">✏️</a>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}

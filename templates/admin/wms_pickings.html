@@ -1,0 +1,36 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Picking-uri - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-cart-check me-2"></i>Picking-uri</h2>
+    <span class="badge bg-secondary fs-6">{{ pickings|length }} picking-uri</span>
+</div>
+<div class="bg-white rounded-3 p-3">
+{% if pickings %}
+<table class="table table-hsl table-hover mb-0">
+<thead><tr><th>Nr. Picking</th><th>Comandă</th><th>Client</th><th>Status</th><th>Progres</th><th>Creat</th></tr></thead>
+<tbody>
+{% for p in pickings %}
+{% set done, total = p.progres %}
+<tr onclick="location.href='/admin/wms/picking/{{ p.id }}'" style="cursor:pointer">
+    <td><strong>{{ p.numar }}</strong></td>
+    <td><a href="/admin/comenzi/{{ p.comanda_id }}">{{ p.comanda.numar }}</a></td>
+    <td>{{ p.comanda.client.nume if p.comanda.client else '-' }}</td>
+    <td><span class="badge bg-{% if p.status=='nou' %}info{% elif p.status=='in_pregatire' %}warning text-dark{% elif p.status=='complet' %}success{% elif p.status=='livrat' %}primary{% else %}secondary{% endif %}">{{ p.status_display }}</span></td>
+    <td>
+        <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="height:8px">
+                <div class="progress-bar bg-{% if done==total %}success{% else %}warning{% endif %}" style="width:{{ (done/total*100 if total else 0)|int }}%"></div>
+            </div>
+            <small class="text-muted">{{ done }}/{{ total }}</small>
+        </div>
+    </td>
+    <td class="small text-muted">{{ p.data_creare.strftime('%d.%m.%Y %H:%M') }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}
+<p class="text-center text-muted py-4">Niciun picking. Generează din pagina unei comenzi.</p>
+{% endif %}
+</div>
+{% endblock %}

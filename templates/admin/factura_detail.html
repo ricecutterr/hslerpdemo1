@@ -1,0 +1,86 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Proformă' if factura.tip=='proforma' else 'Factură' }} {{ factura.numar_complet }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-{% if factura.tip=='proforma' %}file-earmark-text{% else %}receipt{% endif %} me-2"></i>{{ factura.numar_complet }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            <span class="badge fs-6 bg-{% if factura.tip=='proforma' %}warning text-dark{% else %}primary{% endif %}">{{ 'PROFORMĂ' if factura.tip=='proforma' else 'FISCALĂ' }}</span>
+            <span class="badge fs-6 bg-{% if factura.status=='incasata' %}success{% elif factura.status=='confirmata' %}success{% elif factura.status=='partial' %}info{% elif factura.status=='emisa' %}warning text-dark{% elif factura.status=='trimisa' %}info{% elif factura.status=='anulata' %}danger{% else %}secondary{% endif %}">
+                {% if factura.tip=='proforma' %}{{ 'Plătită' if factura.status=='incasata' else 'Confirmată' if factura.status=='confirmata' else 'Parțial' if factura.status=='partial' else 'Neplătită' if factura.status in ['emisa','trimisa'] else factura.status|title }}{% else %}{{ factura.status|title }}{% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        {# === MAIN ACTIONS (colored) === #}
+        {% if factura.status == 'emisa' %}
+        <button class="btn btn-info text-white" onclick="setStatusFactura('trimisa')"><i class="bi bi-send me-1"></i>Trimisă</button>
+        {% endif %}
+        {% if factura.tip == 'proforma' and factura.status in ['emisa','trimisa'] %}
+        <button class="btn btn-success" onclick="setStatusFactura('confirmata')"><i class="bi bi-check-lg me-1"></i>Confirmată de client</button>
+        {% endif %}
+
+        {# === DROPDOWN "MAI MULTE" === #}
+        {% if factura.status in ['emisa','trimisa','confirmata'] %}
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                {% if factura.status in ['emisa','trimisa','confirmata'] %}
+                <li><a class="dropdown-item text-warning" href="#" onclick="setStatusFactura('anulata');return false;"><i class="bi bi-x-circle me-2"></i>Anulează</a></li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="stergeFactura();return false;"><i class="bi bi-trash me-2"></i>Șterge</a></li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+<div class="col-md-4"><div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold">Detalii</h6>
+    <p><strong>Client:</strong> <a href="/admin/clienti/{{ factura.client_id }}/detalii">{{ factura.client.nume }}</a></p>
+    {% if factura.oferta %}<p><strong>Ofertă:</strong> <a href="/admin/oferte/{{ factura.oferta_id }}">{{ factura.oferta.numar }}</a></p>{% endif %}
+    {% if factura.comanda %}<p><strong>Comandă:</strong> <a href="/admin/comenzi/{{ factura.comanda_id }}">{{ factura.comanda.numar }}</a></p>{% endif %}
+    <p><strong>Data:</strong> {{ factura.data_factura }}<br><strong>Scadență:</strong> {{ factura.data_scadenta }}</p>
+    {% if factura.curs_valutar %}
+    <hr>
+    <h6 class="fw-bold">Curs valutar</h6>
+    <p class="mb-1"><strong>Curs EUR/RON:</strong> {{ '{:.4f}'.format(factura.curs_valutar) }}</p>
+    <p class="mb-1"><strong>Total EUR:</strong> {{ '{:,.2f}'.format(factura.total_eur) }} EUR</p>
+    <p class="mb-0"><strong>Total RON:</strong> {{ '{:,.2f}'.format(factura.total) }} RON</p>
+    {% endif %}
+    {% if factura.incasari %}
+    <hr>
+    <h6 class="fw-bold">Încasări</h6>
+    {% for inc in factura.incasari %}
+    <div class="d-flex justify-content-between small mb-1">
+        <span>{{ inc.data_tranzactie.strftime('%d.%m.%Y') if inc.data_tranzactie else '' }} · {{ inc.platitor_nume[:30] if inc.platitor_nume else '' }}</span>
+        <span class="fw-bold text-success">{{ '{:,.2f}'.format(inc.suma) }} {{ inc.moneda }}</span>
+    </div>
+    {% endfor %}
+    <div class="mt-2 fw-bold text-end">
+        Total încasat: {{ '{:,.2f}'.format(factura.incasari|sum(attribute='suma')) }} / {{ '{:,.2f}'.format(factura.total) }} {{ factura.moneda }}
+    </div>
+    {% endif %}
+</div></div>
+<div class="col-md-8"><div class="bg-white rounded-3 p-3">
+    <table class="table table-sm table-hsl">
+    <thead><tr><th>Denumire</th><th>UM</th><th>Cant.</th><th>Preț</th><th>Valoare</th></tr></thead>
+    <tbody>{% for l in factura.linii %}
+    <tr><td>{{ l.denumire }}</td><td>{{ l.um }}</td><td>{{ l.cantitate }}</td><td>{{ '{:,.2f}'.format(l.pret_unitar) }}</td><td>{{ '{:,.2f}'.format(l.valoare) }}</td></tr>
+    {% endfor %}</tbody>
+    <tfoot>
+    <tr><td colspan="4" class="text-end">Subtotal:</td><td class="fw-bold">{{ '{:,.2f}'.format(factura.subtotal) }} RON</td></tr>
+    <tr><td colspan="4" class="text-end">TVA {{ factura.tva_procent }}%:</td><td>{{ '{:,.2f}'.format(factura.tva_valoare) }} RON</td></tr>
+    <tr class="table-success"><td colspan="4" class="text-end fw-bold fs-5">TOTAL:</td><td class="fw-bold fs-5">{{ '{:,.2f}'.format(factura.total) }} RON</td></tr>
+    {% if factura.total_eur %}
+    <tr><td colspan="4" class="text-end text-muted small">Echivalent EUR:</td><td class="text-muted small">{{ '{:,.2f}'.format(factura.total_eur) }} EUR (curs {{ '{:.4f}'.format(factura.curs_valutar) }})</td></tr>
+    {% endif %}
+    </tfoot></table>
+</div></div></div>
+{% endblock %}
+{% block scripts %}<script>
+function stergeFactura(){if(!confirm('Sigur vrei să ștergi?'))return;fetch('/api/factura/{{ factura.id }}/sterge',{method:'POST',headers:{'Content-Type':'application/json'}}).then(r=>r.json()).then(d=>{if(d.success){location.href='/admin/facturi'}else alert(d.error)})}
+function setStatusFactura(s){fetch('/api/factura/{{ factura.id }}/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s})}).then(r=>r.json()).then(d=>{if(d.success)location.reload();else alert(d.error||'Eroare')})}
+</script>{% endblock %}

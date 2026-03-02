@@ -1,0 +1,209 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Oferta {{ oferta.numar_display }} - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.btn-group .btn-accept{background:#198754;color:#fff;border-color:#198754}
+.btn-group .btn-accept:hover{background:#146c43;border-color:#146c43;color:#fff}
+.btn-group .btn-refuse{background:#dc3545;color:#fff;border-color:#dc3545}
+.btn-group .btn-refuse:hover{background:#b02a37;border-color:#b02a37;color:#fff}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-file-earmark-text me-2"></i>{{ oferta.numar_display }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            <span class="badge bg-{% if oferta.status=='draft' %}secondary{% elif oferta.status=='acceptata' %}success{% elif oferta.status=='comanda' %}primary{% elif oferta.status=='trimisa' %}info{% elif oferta.status=='refuzata' %}danger{% else %}warning{% endif %} fs-6">{{ oferta.status|title }}</span>
+            {% if oferta.versiune > 1 %}<span class="badge fs-6" style="background:#6f42c1;color:#fff">Versiunea {{ oferta.versiune }}</span>{% endif %}
+            {% if oferta.next_followup %}<span class="badge bg-warning text-dark fs-6"><i class="bi bi-bell me-1"></i>Follow-up: {{ oferta.next_followup.strftime('%d.%m.%Y') }}</span>{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        {# === AGENT ACTIONS (edit, export, revision, delete) - always visible === #}
+        {% if oferta.status in ['draft','trimisa'] %}
+        <a href="/configurator?edit={{ oferta.id }}" class="btn btn-outline-secondary" title="Editează"><i class="bi bi-pencil"></i></a>
+        {% endif %}
+
+        {# === STATUS BUTTONS - only for users with oferte_comanda permission === #}
+        {% if current_user.has_access('oferte_comanda') %}
+        {% if oferta.status in ['draft','trimisa'] %}
+        <button class="btn btn-primary" onclick="setStatus('trimisa')" title="Marchează ca trimisă"><i class="bi bi-envelope-arrow-up me-1"></i>Trimisă</button>
+        <div class="btn-group" role="group">
+            <button class="btn btn-accept px-3" onclick="setStatus('acceptata')" title="Acceptată"><i class="bi bi-check-lg"></i></button>
+            <button class="btn btn-refuse px-3" onclick="setStatus('refuzata')" title="Refuzată"><i class="bi bi-x-lg"></i></button>
+        </div>
+        {% endif %}
+        {% if oferta.status == 'acceptata' and not oferta.comanda %}
+            {% set has_proforma = oferta.proforme.count() > 0 %}
+            {% set pf_list = oferta.proforme.all() if has_proforma else [] %}
+            {% set pf_incasata = pf_list|selectattr('status','equalto','incasata')|list|length > 0 %}
+            {% set pf_confirmata = pf_list|selectattr('status','equalto','confirmata')|list|length > 0 %}
+            {% if has_proforma and (pf_incasata or pf_confirmata) %}
+        <button class="btn btn-primary" onclick="convertToComanda()"><i class="bi bi-arrow-right-circle me-1"></i>Comandă</button>
+            {% endif %}
+        {% endif %}
+        {% endif %}
+
+        {# === PROFORMA - only for users with oferte_proforma permission === #}
+        {% if current_user.has_access('oferte_proforma') %}
+        {% if oferta.status == 'acceptata' and oferta.proforme.count() == 0 %}
+        <button class="btn btn-warning" onclick="genProforma()"><i class="bi bi-file-earmark-text me-1"></i>Proformă</button>
+        {% endif %}
+        {% endif %}
+
+        {# === RELATED LINKS - visible to all === #}
+        {% if oferta.comanda %}
+        <a href="/admin/comenzi/{{ oferta.comanda.id }}" class="btn btn-primary"><i class="bi bi-cart-check me-1"></i>{{ oferta.comanda.numar }}</a>
+        {% endif %}
+        {% for pf in oferta.proforme %}
+        <a href="/admin/facturi/{{ pf.id }}" class="btn btn-{% if pf.status=='incasata' %}success{% elif pf.status=='confirmata' %}info{% else %}warning{% endif %}" style="text-decoration:none">
+            <i class="bi bi-file-earmark-text me-1"></i>{{ pf.numar_complet }} · {{ 'Plătită' if pf.status=='incasata' else 'Confirmată' if pf.status=='confirmata' else 'Neplătită' if pf.status in ['emisa','trimisa'] else pf.status|title }}
+        </a>
+        {% endfor %}
+
+        {# === DROPDOWN "MAI MULTE" - export, revision, delete === #}
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="/api/oferta/{{ oferta.id }}/excel"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Export Excel</a></li>
+                <li><a class="dropdown-item" href="#" onclick="creeazaRevizie();return false;"><i class="bi bi-files me-2 text-primary"></i>Revizie Nouă</a></li>
+                {% if not oferta.comanda %}
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="stergeOferta();return false;"><i class="bi bi-trash me-2"></i>Șterge Oferta</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+<!-- Left column -->
+<div class="col-md-4">
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">Detalii</h6>
+        <p><strong>Client:</strong> {% if oferta.client %}<a href="/admin/clienti/{{ oferta.client_id }}/detalii">{{ oferta.client.nume }}</a>{% else %}Nespecificat{% endif %}</p>
+        <p><strong>Data:</strong> {{ oferta.data_oferta.strftime('%d.%m.%Y') if oferta.data_oferta else '-' }}<br>
+           <strong>Expiră:</strong> {{ oferta.data_expirare.strftime('%d.%m.%Y') if oferta.data_expirare else '-' }}</p>
+        <p><strong>Creat de:</strong> {{ oferta.creat_de.nume_complet if oferta.creat_de else '-' }}</p>
+        {% if oferta.observatii %}<p><strong>Observații:</strong> {{ oferta.observatii }}</p>{% endif %}
+    </div>
+    {% set root = oferta.parinte if oferta.parinte else oferta %}
+    {% set all_versions = [root] + root.revizii|list %}
+    {% if all_versions|length > 1 %}
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold"><i class="bi bi-clock-history me-2"></i>Versiuni ({{ all_versions|length }})</h6>
+        {% for v in all_versions|sort(attribute='versiune', reverse=True) %}
+        <div class="d-flex align-items-center gap-2 py-1 {% if not loop.last %}border-bottom{% endif %}">
+            {% if v.id == oferta.id %}<i class="bi bi-arrow-right-circle-fill text-primary"></i>
+            {% else %}<i class="bi bi-file-earmark text-muted"></i>{% endif %}
+            <a href="/admin/oferte/{{ v.id }}" class="{% if v.id == oferta.id %}fw-bold{% endif %}">v{{ v.versiune }}</a>
+            <span class="badge bg-{% if v.status=='draft' %}secondary{% elif v.status=='acceptata' %}success{% elif v.status=='comanda' %}primary{% else %}info{% endif %}" style="font-size:.65rem">{{ v.status|title }}</span>
+            <small class="text-muted ms-auto">{{ '{:,.0f}'.format(v.total) }}€</small>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="bg-white rounded-3 p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold mb-0"><i class="bi bi-telephone me-2"></i>Follow-ups</h6>
+            <button class="btn btn-sm btn-hsl" data-bs-toggle="collapse" data-bs-target="#fuForm"><i class="bi bi-plus-lg"></i></button>
+        </div>
+        <div class="collapse mb-3" id="fuForm">
+            <div class="border rounded p-2">
+                <div class="row g-2">
+                    <div class="col-6"><select id="fuMetoda" class="form-select form-select-sm">
+                        <option value="telefon">📞 Telefon</option><option value="email">📧 Email</option>
+                        <option value="intalnire">🤝 Întâlnire</option><option value="whatsapp">💬 WhatsApp</option>
+                        <option value="altele">💭 Altele</option></select></div>
+                    <div class="col-6"><select id="fuRezultat" class="form-select form-select-sm">
+                        <option value="interesat">Interesat</option><option value="revine">Revine cu răspuns</option>
+                        <option value="cere_modificari">Cere modificări</option><option value="fara_raspuns">Fără răspuns</option>
+                        <option value="accepta">Acceptă</option><option value="refuza">Refuză</option></select></div>
+                    <div class="col-12"><textarea id="fuNote" class="form-control form-control-sm" rows="2" placeholder="Ce s-a discutat..."></textarea></div>
+                    <div class="col-8"><label class="small text-muted">Următorul follow-up:</label>
+                        <input type="date" id="fuNext" class="form-control form-control-sm"></div>
+                    <div class="col-4 d-flex align-items-end"><button class="btn btn-sm btn-hsl w-100" onclick="addFollowUp()">Salvează</button></div>
+                </div>
+            </div>
+        </div>
+        <div id="fuList">
+        {% for fu in oferta.followups %}
+        <div class="border-bottom py-2">
+            <div class="d-flex justify-content-between">
+                <div><i class="bi {{ fu.metoda_icon }} me-1"></i><strong>{{ fu.metoda|title }}</strong>
+                    <span class="badge bg-{% if fu.rezultat=='accepta' %}success{% elif fu.rezultat=='refuza' %}danger{% elif fu.rezultat=='cere_modificari' %}warning text-dark{% elif fu.rezultat=='fara_raspuns' %}secondary{% else %}info{% endif %}" style="font-size:.7rem">{{ fu.rezultat|replace('_',' ')|title }}</span></div>
+                <small class="text-muted">{{ fu.data_followup.strftime('%d.%m.%Y %H:%M') }}</small>
+            </div>
+            {% if fu.note %}<p class="small mb-1 mt-1">{{ fu.note }}</p>{% endif %}
+            {% if fu.next_date %}<small class="text-warning"><i class="bi bi-bell me-1"></i>Next: {{ fu.next_date.strftime('%d.%m.%Y') }}</small>{% endif %}
+            <small class="text-muted d-block">— {{ fu.creat_de.nume_complet if fu.creat_de else '?' }}</small>
+        </div>
+        {% endfor %}
+        {% if not oferta.followups %}<p class="text-muted text-center py-2 small">Niciun follow-up înregistrat.</p>{% endif %}
+        </div>
+    </div>
+</div>
+<div class="col-md-8"><div class="bg-white rounded-3 p-3">
+    <h6 class="fw-bold mb-3">Linii Ofertă</h6>
+    <table class="table table-sm table-hsl">
+    <thead><tr><th>#</th><th>Cod</th><th>Denumire</th><th>UM</th><th>Cant.</th><th>Preț</th><th>Valoare</th></tr></thead>
+    <tbody>
+    {% set ns = namespace(row_num=0) %}
+    {% for l in oferta.linii %}
+    {% if l.is_sub_line %}
+    {# Sub-line: linked product or accessory - indented, no row number #}
+    {% if l.tip == 'Accesoriu' %}
+    <tr style="background:#f8f9fa;font-size:.9rem"><td></td><td><small class="text-muted">{{ l.cod }}</small></td>
+        <td style="padding-left:2rem">• {{ l.denumire }}</td>
+        <td>{{ l.um }}</td><td>{{ l.cantitate }}</td>
+        <td>{{ '{:,.2f}'.format(l.pret_final) }}</td><td>{{ '{:,.2f}'.format(l.valoare_linie) }}</td></tr>
+    {% else %}
+    <tr style="background:#f0f7ec;font-size:.9rem"><td></td><td><code style="color:#61993B">{{ l.cod }}</code></td>
+        <td style="padding-left:2rem">↳ {{ l.denumire }}
+        {% if l.parametri and l.parametri is mapping %}
+        {% set param_parts = [] %}
+        {% for k, v in l.parametri.items() %}{% if v and k != 'canate' %}{% if param_parts.append(v) %}{% endif %}{% endif %}{% endfor %}
+        {% if param_parts and '|' not in l.denumire %}<br><small class="text-muted">{{ param_parts|join(', ') }}</small>{% endif %}
+        {% endif %}</td>
+        <td>{{ l.um }}</td><td>{{ l.cantitate }}</td>
+        <td>{{ '{:,.2f}'.format(l.pret_final) }}</td><td>{{ '{:,.2f}'.format(l.valoare_linie) }}</td></tr>
+    {% endif %}
+    {% else %}
+    {# Main line - normal display with row number #}
+    {% set ns.row_num = ns.row_num + 1 %}
+    <tr><td>{{ ns.row_num }}</td><td><code>{{ l.cod }}</code></td>
+        <td>{{ l.denumire }}
+        {% if l.parametri and l.parametri is mapping %}
+        {% set param_parts = [] %}
+        {% for k, v in l.parametri.items() %}{% if v and k != 'canate' %}{% if param_parts.append(v) %}{% endif %}{% endif %}{% endfor %}
+        {% if param_parts and '|' not in l.denumire %}<br><small class="text-muted">{{ param_parts|join(', ') }}</small>{% endif %}
+        {% endif %}</td>
+        <td>{{ l.um }}</td><td>{{ l.cantitate }}</td>
+        <td>{{ '{:,.2f}'.format(l.pret_final) }}</td><td class="fw-bold">{{ '{:,.2f}'.format(l.valoare_linie) }}</td></tr>
+    {% for acc in l.accesorii %}{% if not acc.get('is_standard', False) %}
+    <tr style="background:#f8f9fa;font-size:.9rem"><td></td><td><small class="text-muted">{{ acc.get('cod','') }}</small></td>
+        <td style="padding-left:2rem">• {{ acc.get('denumire','') }}</td>
+        <td>{{ acc.get('um','buc') }}</td><td>{{ acc.get('cantitate',1) }}</td>
+        <td>{{ '{:,.2f}'.format(acc.get('pret_final', acc.get('pret',0))) }}</td>
+        <td>{{ '{:,.2f}'.format(acc.get('pret_final', acc.get('pret',0)) * acc.get('cantitate',1)) }}</td></tr>
+    {% endif %}{% endfor %}
+    {% endif %}
+    {% endfor %}
+    </tbody>
+    <tfoot>
+    <tr><td colspan="6" class="text-end"><strong>Subtotal:</strong></td><td class="fw-bold">{{ '{:,.2f}'.format(oferta.subtotal) }} {{ oferta.moneda }}</td></tr>
+    <tr><td colspan="6" class="text-end">TVA ({{ oferta.tva_procent }}%):</td><td>{{ '{:,.2f}'.format(oferta.tva_valoare) }}</td></tr>
+    <tr class="table-success"><td colspan="6" class="text-end"><strong class="fs-5">TOTAL:</strong></td><td class="fw-bold fs-5">{{ '{:,.2f}'.format(oferta.total) }} {{ oferta.moneda }}</td></tr>
+    </tfoot></table>
+</div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const OID = {{ oferta.id }};
+function setStatus(s){fetch(`/api/oferta/${OID}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s})}).then(r=>r.json()).then(d=>{if(d.success)location.reload();else alert(d.error)})}
+function convertToComanda(){if(!confirm('Transformă oferta în comandă?'))return;fetch(`/api/oferta/${OID}/convert`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()).then(d=>{if(d.success){let msg='Comandă '+d.numar+' creată!';if(d.pending)msg+='\n\n⏳ Comanda este în așteptare aprobare (proformă confirmată dar neplătită).\nUn admin sau director vânzări trebuie să o aprobe.';alert(msg);location.href='/admin/comenzi/'+d.comanda_id}else alert(d.error)})}
+function genProforma(){if(!confirm('Generează factură proformă?'))return;fetch(`/api/oferta/${OID}/proforma`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>{if(!r.ok)throw new Error('Status '+r.status);return r.json()}).then(d=>{if(d.success){alert('Proformă '+d.numar+' creată!');location.reload()}else alert('Eroare: '+(d.error||'necunoscută'))}).catch(e=>alert('Eroare: '+e.message))}
+function creeazaRevizie(){if(!confirm('Creează o nouă revizie?'))return;fetch(`/api/oferta/${OID}/revizie`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()).then(d=>{if(d.success){alert(`Revizie v${d.versiune} creată!`);location.href=`/admin/oferte/${d.revizie_id}`;}else alert(d.error)})}
+function addFollowUp(){const data={metoda:document.getElementById('fuMetoda').value,rezultat:document.getElementById('fuRezultat').value,note:document.getElementById('fuNote').value.trim(),next_date:document.getElementById('fuNext').value||null};fetch(`/api/oferta/${OID}/followup`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(r=>r.json()).then(d=>{if(d.success)location.reload()})}
+function stergeOferta(){if(!confirm('Sigur vrei să ștergi această ofertă? Acțiunea este ireversibilă!'))return;fetch(`/api/oferta/${OID}/sterge`,{method:'POST',headers:{'Content-Type':'application/json'}}).then(r=>r.json()).then(d=>{if(d.success){alert('Oferta a fost ștearsă.');location.href='/admin/oferte'}else alert(d.error)})}
+</script>{% endblock %}

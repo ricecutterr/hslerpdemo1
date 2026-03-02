@@ -1,0 +1,90 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Comenzi - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.status-pipeline{display:flex;gap:1px;margin:0}
+.status-step{flex:1;height:6px;background:#e9ecef;position:relative}
+.status-step:first-child{border-radius:3px 0 0 3px}
+.status-step:last-child{border-radius:0 3px 3px 0}
+.status-step.done{background:#61993B}
+.status-step.active{background:#ffc107}
+.status-step.cancelled{background:#dc3545}
+.filter-bar{background:#fff;border-radius:10px;padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.stat-mini{text-align:center;padding:4px 12px;border-right:1px solid #e9ecef}
+.stat-mini:last-child{border-right:none}
+.stat-mini .val{font-size:1.1rem;font-weight:800;line-height:1}
+.stat-mini .lbl{font-size:.6rem;text-transform:uppercase;opacity:.5}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-cart-check me-2"></i>Comenzi</h2>
+    <div class="d-flex">
+        <div class="stat-mini"><div class="val">{{ comenzi|length }}</div><div class="lbl">Total</div></div>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <i class="bi bi-funnel text-muted"></i>
+    <div class="btn-group btn-group-sm">
+        <a href="/admin/comenzi?client_id={{ client_filter }}&period={{ period_filter }}" class="btn btn-{% if not status_filter %}hsl{% else %}outline-secondary{% endif %}">Toate</a>
+        {% for code,label in [('noua','Noi'),('confirmata','Confirmate'),('productie','Producție'),('gata','Gata'),('livrata','Livrate'),('finalizata','Finalizate')] %}
+        <a href="/admin/comenzi?status={{ code }}&client_id={{ client_filter }}&period={{ period_filter }}" class="btn btn-{% if status_filter==code %}hsl{% else %}outline-secondary{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    <span class="text-muted">|</span>
+    <select class="form-select form-select-sm" style="max-width:170px" onchange="applyFilter('client_id',this.value)">
+        <option value="">Toți clienții</option>
+        {% for cl in clienti %}<option value="{{ cl.id }}" {% if client_filter==cl.id|string %}selected{% endif %}>{{ cl.nume[:25] }}</option>{% endfor %}
+    </select>
+    <div class="btn-group btn-group-sm">
+        <a href="/admin/comenzi?status={{ status_filter }}&client_id={{ client_filter }}" class="btn btn-{% if not period_filter and not date_start %}outline-secondary{% else %}outline-secondary{% endif %} btn-sm">Toate</a>
+        <a href="/admin/comenzi?status={{ status_filter }}&client_id={{ client_filter }}&period=saptamana" class="btn btn-{% if period_filter=='saptamana' %}hsl{% else %}outline-secondary{% endif %} btn-sm">7 zile</a>
+        <a href="/admin/comenzi?status={{ status_filter }}&client_id={{ client_filter }}&period=luna" class="btn btn-{% if period_filter=='luna' %}hsl{% else %}outline-secondary{% endif %} btn-sm">Luna</a>
+        <a href="/admin/comenzi?status={{ status_filter }}&client_id={{ client_filter }}&period=an" class="btn btn-{% if period_filter=='an' %}hsl{% else %}outline-secondary{% endif %} btn-sm">An</a>
+    </div>
+    <span class="text-muted">|</span>
+    <div class="d-flex align-items-center gap-1">
+        <input type="date" id="dateStart" class="form-control form-control-sm" style="width:130px" value="{{ date_start or '' }}">
+        <span class="text-muted small">–</span>
+        <input type="date" id="dateEnd" class="form-control form-control-sm" style="width:130px" value="{{ date_end or '' }}">
+        <button class="btn btn-hsl btn-sm" onclick="applyDates()"><i class="bi bi-search"></i></button>
+    </div>
+    {% if status_filter or client_filter or period_filter or date_start %}
+    <a href="/admin/comenzi" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></a>
+    {% endif %}
+</div>
+
+<div class="bg-white rounded-3 p-3">
+    <table class="table table-hsl table-hover mb-0">
+    <thead><tr><th>Nr.</th><th>Client</th><th>Agent</th><th>Data</th><th class="text-end">Total</th><th>Status</th><th style="width:120px">Progres</th></tr></thead>
+    <tbody>{% for c in comenzi %}
+    {% set steps = ['noua','confirmata','productie','gata','livrata','finalizata'] %}
+    {% set step_idx = steps.index(c.status) if c.status in steps else -1 %}
+    <tr onclick="location.href='/admin/comenzi/{{ c.id }}'" style="cursor:pointer">
+        <td><strong>{{ c.numar }}</strong></td>
+        <td>{% if c.client %}{{ c.client.nume[:25] }}{% else %}-{% endif %}</td>
+        <td class="small text-muted">{{ c.creat_de.nume_complet[:15] if c.creat_de else '-' }}</td>
+        <td class="small">{{ c.data_comanda.strftime('%d.%m.%Y') if c.data_comanda else '' }}</td>
+        <td class="text-end fw-bold">{{ '{:,.0f}'.format(c.total) }} {{ c.moneda }}</td>
+        <td><span class="badge bg-{% if c.status=='noua' %}secondary{% elif c.status=='confirmata' %}primary{% elif c.status=='productie' %}warning text-dark{% elif c.status=='gata' %}info{% elif c.status=='livrata' %}success{% elif c.status=='finalizata' %}dark{% elif c.status=='anulat' %}danger{% else %}secondary{% endif %}">{{ c.status_display }}</span></td>
+        <td>
+            {% if c.status != 'anulat' %}
+            <div class="status-pipeline" title="{{ c.status_display }}">
+                {% for s in steps %}
+                <div class="status-step {% if loop.index0 < step_idx %}done{% elif loop.index0 == step_idx %}active{% endif %}"></div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="status-pipeline"><div class="status-step cancelled" style="flex:1;border-radius:3px"></div></div>
+            {% endif %}
+        </td>
+    </tr>{% else %}
+    <tr><td colspan="7" class="text-center text-muted py-3">Nicio comandă găsită</td></tr>
+    {% endfor %}</tbody></table>
+</div>
+<script>
+function applyFilter(key, val){const u=new URL(location.href);if(val)u.searchParams.set(key,val);else u.searchParams.delete(key);u.searchParams.delete('date_start');u.searchParams.delete('date_end');location.href=u.toString();}
+function applyDates(){const s=document.getElementById('dateStart').value,e=document.getElementById('dateEnd').value;if(!s||!e)return alert('Selectează ambele date');const u=new URL(location.href);u.searchParams.set('date_start',s);u.searchParams.set('date_end',e);u.searchParams.delete('period');location.href=u.toString();}
+</script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'admin/layout.html' %}
+{% block title %}NIR-uri - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-clipboard-check me-2"></i>NIR-uri (Note Intrare-Recepție)</h2>
+    <a href="/admin/wms/nir/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-1"></i>NIR Nou</a>
+</div>
+<div class="bg-white rounded-3 p-3">
+{% if niruri %}
+<table class="table table-hover mb-0">
+<thead><tr><th>Nr. NIR</th><th>Furnizor</th><th>Factură Furnizor</th><th>Data</th><th>Total Achiziție</th><th>Status</th><th>Verificare</th></tr></thead>
+<tbody>
+{% for n in niruri %}
+<tr onclick="location.href='/admin/wms/nir/{{ n.id }}'" style="cursor:pointer">
+    <td class="fw-bold">{{ n.numar }}</td>
+    <td>{{ n.furnizor.nume if n.furnizor else '-' }}</td>
+    <td class="small">{{ n.numar_factura_furnizor or '-' }}</td>
+    <td class="small">{{ n.data_nir.strftime('%d.%m.%Y') if n.data_nir else '-' }}</td>
+    <td class="fw-bold">{{ '{:,.2f}'.format(n.total_achizitie) }}€</td>
+    <td><span class="badge bg-{% if n.status=='draft' %}secondary{% elif n.status=='scriptic' %}info{% elif n.status=='in_verificare' %}warning text-dark{% else %}success{% endif %}">{{ n.status_display }}</span></td>
+    <td>
+        {% set v, t = n.progres_verificare %}
+        {% if t > 0 %}
+        <div class="progress" style="height:16px;min-width:60px">
+            <div class="progress-bar bg-{% if v==t %}success{% else %}warning{% endif %}" style="width:{{ (v/t*100)|int }}%">
+                <small>{{ v }}/{{ t }}</small>
+            </div>
+        </div>
+        {% else %}-{% endif %}
+    </td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}<p class="text-muted text-center py-4">Niciun NIR. <a href="/admin/wms/nir/nou">Creează primul →</a></p>{% endif %}
+</div>
+{% endblock %}

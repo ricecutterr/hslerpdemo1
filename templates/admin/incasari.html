@@ -1,0 +1,233 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Încasări Bancare - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.inc-stats{display:flex;gap:12px;margin-bottom:16px}
+.inc-stat{flex:1;background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);text-align:center}
+.inc-stat .num{font-size:1.5rem;font-weight:700}
+.inc-stat .lbl{font-size:.72rem;color:#888}
+.inc-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:.82rem;transition:background .1s}
+.inc-row:hover{background:#f8f9fa}
+.inc-row .inc-sum{font-weight:700;font-size:.9rem;white-space:nowrap}
+.inc-row .inc-platitor{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inc-row .inc-ref{color:#888;font-size:.72rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inc-row .inc-date{color:#888;font-size:.72rem;white-space:nowrap}
+.inc-badge{font-size:.65rem;padding:2px 7px;border-radius:4px;font-weight:600}
+.inc-badge.auto{background:#d4edda;color:#155724}
+.inc-badge.manual{background:#cce5ff;color:#004085}
+.inc-badge.nerec{background:#fff3cd;color:#856404}
+.inc-badge.ignorat{background:#f0f0f0;color:#888}
+.inc-actions{display:flex;gap:4px}
+.inc-actions button{font-size:.7rem;padding:2px 6px}
+.suggest-item{padding:6px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:.78rem;transition:background .1s}
+.suggest-item:hover{background:#f0fdf4}
+.suggest-item .s-score{display:inline-flex;gap:3px}
+.suggest-item .s-tag{font-size:.6rem;padding:1px 4px;border-radius:3px;background:#e8f5e9;color:#2e7d32}
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-bank me-2"></i>Încasări Bancare</h4>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="generateMock()"><i class="bi bi-dice-5 me-1"></i>Generează Test</button>
+        <label class="btn btn-outline-primary btn-sm mb-0" style="cursor:pointer">
+            <i class="bi bi-upload me-1"></i>Import CSV
+            <input type="file" accept=".csv" style="display:none" onchange="importCSV(this)">
+        </label>
+        <button class="btn btn-sm" style="background:#61993B;color:#fff" onclick="reMatch()"><i class="bi bi-arrow-repeat me-1"></i>Re-Match</button>
+    </div>
+</div>
+
+<div class="inc-stats" id="statsArea"></div>
+
+<div class="d-flex gap-2 mb-3">
+    <input type="text" class="form-control form-control-sm" id="incSearch" placeholder="Caută plătitor, referință..." style="max-width:300px" oninput="debounceLoad()">
+    <select class="form-select form-select-sm" id="incFilter" style="width:auto" onchange="loadIncasari()">
+        <option value="">Toate</option>
+        <option value="nereconciliat">Nereconciliate</option>
+        <option value="automat">Automat</option>
+        <option value="manual">Manual</option>
+        <option value="ignorat">Ignorate</option>
+    </select>
+</div>
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    <div id="incList" style="max-height:calc(100vh - 320px);overflow-y:auto"></div>
+</div>
+
+<!-- Reconciliere Modal -->
+<div class="modal fade" id="reconcModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title mb-0"><i class="bi bi-link-45deg me-2"></i>Reconciliere Manuală</h6><button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+    <div id="reconcInfo" class="mb-3"></div>
+    <div class="fw-bold small mb-2">Sugestii facturi:</div>
+    <div id="reconcSuggestions" style="max-height:300px;overflow-y:auto"></div>
+    <hr>
+    <div class="small text-muted">Sau caută manual:</div>
+    <input class="form-control form-control-sm mt-1" id="reconcSearch" placeholder="Nr. factură sau client..." oninput="searchFacturi(this.value)">
+    <div id="reconcSearchResults" style="max-height:150px;overflow-y:auto"></div>
+</div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let searchTimer=null, currentIncId=null;
+
+function debounceLoad(){clearTimeout(searchTimer);searchTimer=setTimeout(loadIncasari,300);}
+
+function loadIncasari(){
+    const q=document.getElementById('incSearch').value;
+    const status=document.getElementById('incFilter').value;
+    let url='/api/incasari?';
+    if(q)url+=`q=${encodeURIComponent(q)}&`;
+    if(status)url+=`status=${status}&`;
+    fetch(url).then(r=>r.json()).then(d=>{
+        renderStats(d.stats);
+        const el=document.getElementById('incList');
+        if(!d.incasari.length){el.innerHTML='<div style="padding:24px;text-align:center;color:#bbb">Nicio încasare</div>';return;}
+        el.innerHTML=d.incasari.map(i=>{
+            const badgeCls=i.status==='automat'?'auto':i.status==='manual'?'manual':i.status==='ignorat'?'ignorat':'nerec';
+            const statusLabel={'nereconciliat':'Nereconciliat','automat':'Auto','manual':'Manual','ignorat':'Ignorat'}[i.status]||i.status;
+            return `<div class="inc-row">
+                <div class="inc-date">${i.data}</div>
+                <div class="inc-sum" style="color:${i.status==='nereconciliat'?'#dc3545':'#198754'}">${i.suma.toLocaleString('ro-RO',{minimumFractionDigits:2})} ${i.moneda}</div>
+                <div class="inc-platitor" title="${esc(i.platitor)}">${esc(i.platitor)}</div>
+                <div class="inc-ref" title="${esc(i.referinta)}">${esc(i.referinta)}</div>
+                <span class="inc-badge ${badgeCls}">${statusLabel}</span>
+                ${i.factura?'<a href="/admin/facturi/'+i.factura_id+'" class="badge bg-success text-decoration-none" style="font-size:.65rem">'+i.factura+'</a>':''}
+                <div class="inc-actions">
+                    ${i.status==='nereconciliat'?`
+                        <button class="btn btn-outline-primary btn-sm" onclick="openReconc(${i.id})"><i class="bi bi-link-45deg"></i></button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="ignoreInc(${i.id})" title="Ignoră"><i class="bi bi-eye-slash"></i></button>
+                    `:''}
+                    ${i.status==='automat'||i.status==='manual'?`
+                        <button class="btn btn-outline-warning btn-sm" onclick="unReconc(${i.id})" title="Deconectează"><i class="bi bi-x-circle"></i></button>
+                    `:''}
+                </div>
+            </div>`;
+        }).join('');
+    });
+}
+
+function renderStats(s){
+    document.getElementById('statsArea').innerHTML=`
+        <div class="inc-stat"><div class="num" style="color:#dc3545">${s.nereconciliat}</div><div class="lbl">Nereconciliate</div></div>
+        <div class="inc-stat"><div class="num" style="color:#fd7e14">${s.total_nereconciliat.toLocaleString('ro-RO',{minimumFractionDigits:2})} RON</div><div class="lbl">Total nereconciliat</div></div>
+        <div class="inc-stat"><div class="num" style="color:#198754">${s.automat}</div><div class="lbl">Auto-match</div></div>
+        <div class="inc-stat"><div class="num" style="color:#0d6efd">${s.manual}</div><div class="lbl">Manual</div></div>
+    `;
+}
+
+function importCSV(input){
+    const file=input.files[0];
+    if(!file)return;
+    const fd=new FormData();
+    fd.append('fisier',file);
+    fetch('/api/incasari/import-csv',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+        if(d.success){
+            alert(`Import: ${d.imported} încasări noi (${d.skipped} duplicate)\nAuto-match: ${d.matched} reconciliate`);
+            loadIncasari();
+        } else alert(d.error);
+    });
+    input.value='';
+}
+
+function generateMock(){
+    fetch('/api/incasari/mock',{method:'POST'}).then(r=>r.json()).then(d=>{
+        if(d.success){
+            alert(`Generate: ${d.count} tranzacții test\nAuto-match: ${d.matched} reconciliate`);
+            loadIncasari();
+        }
+    });
+}
+
+function reMatch(){
+    fetch('/api/incasari/re-match',{method:'POST'}).then(r=>r.json()).then(d=>{
+        if(d.success){
+            let msg=`Re-match: ${d.matched}/${d.total} reconciliate`;
+            if(d.reparsed)msg+=`\n${d.reparsed} nume plătitori actualizate`;
+            alert(msg);
+        }
+        loadIncasari();
+    });
+}
+
+function openReconc(id){
+    currentIncId=id;
+    document.getElementById('reconcSuggestions').innerHTML='<div class="text-muted small p-2">Se încarcă...</div>';
+    document.getElementById('reconcSearchResults').innerHTML='';
+    document.getElementById('reconcSearch').value='';
+    
+    // Load payment info
+    fetch('/api/incasari').then(r=>r.json()).then(d=>{
+        const inc=d.incasari.find(i=>i.id===id);
+        if(inc){
+            document.getElementById('reconcInfo').innerHTML=`
+                <div class="p-2 rounded" style="background:#fff3cd;font-size:.82rem">
+                    <b>${inc.suma.toLocaleString('ro-RO',{minimumFractionDigits:2})} ${inc.moneda}</b> · ${esc(inc.platitor)} · ${inc.data}
+                    <div class="text-muted small">${esc(inc.referinta)}</div>
+                </div>`;
+        }
+    });
+    
+    // Load suggestions
+    fetch(`/api/incasari/suggest/${id}`).then(r=>r.json()).then(d=>{
+        const el=document.getElementById('reconcSuggestions');
+        if(!d.suggestions.length){el.innerHTML='<div class="text-muted small p-2">Nicio sugestie</div>';return;}
+        el.innerHTML=d.suggestions.map(s=>`
+            <div class="suggest-item" onclick="doReconc(${currentIncId},${s.factura_id})">
+                <div class="d-flex justify-content-between">
+                    <b>${esc(s.numar)}</b>
+                    <span>${s.total.toLocaleString('ro-RO',{minimumFractionDigits:2})} ${s.moneda}</span>
+                </div>
+                <div class="text-muted">${esc(s.client)} · ${s.data}</div>
+                <div class="s-score">${s.reasons.map(r=>'<span class="s-tag">'+r+'</span>').join('')}</div>
+            </div>`).join('');
+    });
+    
+    new bootstrap.Modal(document.getElementById('reconcModal')).show();
+}
+
+function searchFacturi(q){
+    if(!q||q.length<2)return;
+    fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r=>r.json()).then(d=>{
+        const facts=d.results.filter(r=>r.type==='factura');
+        document.getElementById('reconcSearchResults').innerHTML=facts.map(f=>{
+            const match=f.url.match(/\/(\d+)/);
+            const fid=match?match[1]:'';
+            return `<div class="suggest-item" onclick="doReconc(${currentIncId},${fid})">
+                <b>${esc(f.title)}</b> <span class="text-muted">${esc(f.subtitle)}</span>
+            </div>`;
+        }).join('');
+    });
+}
+
+function doReconc(incId,facturaId){
+    fetch(`/api/incasari/${incId}/reconciliaza`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({factura_id:facturaId})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success){
+            bootstrap.Modal.getInstance(document.getElementById('reconcModal')).hide();
+            loadIncasari();
+        }
+    });
+}
+
+function unReconc(id){
+    if(!confirm('Deconectează încasarea de la factură?'))return;
+    fetch(`/api/incasari/${id}/reconciliaza`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({factura_id:null})
+    }).then(r=>r.json()).then(d=>{if(d.success)loadIncasari();});
+}
+
+function ignoreInc(id){
+    fetch(`/api/incasari/${id}/ignora`,{method:'POST'}).then(r=>r.json()).then(d=>{if(d.success)loadIncasari();});
+}
+
+function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+document.addEventListener('DOMContentLoaded',loadIncasari);
+</script>
+{% endblock %}

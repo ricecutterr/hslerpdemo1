@@ -1,0 +1,150 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ produs.cod }} - Nomenclator - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><code>{{ produs.cod }}</code> — {{ produs.denumire }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            {% for pc in produs.categorii %}
+            <span class="badge bg-info">{{ pc.categorie.nume if pc.categorie else '?' }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    <a href="/admin/nomenclator" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Înapoi</a>
+</div>
+
+<div class="row g-4">
+<!-- Info -->
+<div class="col-md-4">
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold mb-3">Informații Generale</h6>
+        <table class="table table-sm mb-0">
+            <tr><td class="text-muted">Cod</td><td class="fw-bold">{{ produs.cod }}</td></tr>
+            <tr><td class="text-muted">Denumire</td><td>{{ produs.denumire }}</td></tr>
+            <tr><td class="text-muted">Preț Bază</td><td class="fw-bold fs-5" style="color:#61993B">{{ '{:,.2f}'.format(produs.pret) }} €</td></tr>
+            <tr><td class="text-muted">UM</td><td>{{ produs.um }}</td></tr>
+            <tr><td class="text-muted">Status</td><td>{% if produs.activ %}<span class="badge bg-success">Activ</span>{% else %}<span class="badge bg-secondary">Inactiv</span>{% endif %}</td></tr>
+        </table>
+    </div>
+
+    {% if produs.descriere %}
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold">Descriere</h6>
+        <p class="mb-0">{{ produs.descriere }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Stoc -->
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold"><i class="bi bi-box-seam me-2"></i>Stoc & Locații</h6>
+        {% for si in stoc_items %}
+        <div class="{% if not loop.last %}mb-3 pb-2 border-bottom{% endif %}">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <code class="fw-bold">{{ si.cod }}</code>
+                    {% if si.desc %}<span class="small text-muted ms-1">{{ si.desc }}</span>{% endif %}
+                </div>
+                <span class="badge bg-{% if si.total > 0 %}success{% else %}secondary{% endif %} fs-6">{{ si.total|int }} buc</span>
+            </div>
+            {% if si.celule %}
+            <div class="mt-1">
+                {% for s in si.celule %}
+                {% if s.cantitate > 0 %}
+                <span class="badge bg-light text-dark me-1 mb-1">
+                    📍 {{ s.celula.cod if s.celula else 'Nealocat' }}: <strong>{{ s.cantitate|int }}</strong>
+                </span>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% elif si.total == 0 %}
+            <div class="small text-muted">Niciun stoc</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Parametri + Variante -->
+<div class="col-md-8">
+    {% set params = produs.parametri_config %}
+    {% if params %}
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-sliders me-2"></i>Parametri Configurabili ({{ params|length }})</h6>
+        <div class="row g-2">
+        {% for p in params %}
+        <div class="col-md-6">
+            <div class="border rounded p-2">
+                <strong>{{ p.name }}</strong>
+                <span class="badge bg-light text-dark ms-1">{{ p.type }}</span>
+                {% if p.required %}<span class="badge bg-danger ms-1">obligatoriu</span>{% endif %}
+                {% if p.type == 'select' and p.options %}
+                <div class="mt-1">
+                    {% for opt in p.options %}
+                    <span class="badge bg-secondary me-1 mb-1">{{ opt.label }}{% if opt.price_modifier %} ({{ '+' if opt.price_modifier > 0 }}{{ opt.price_modifier }}€){% endif %}</span>
+                    {% endfor %}
+                </div>
+                {% elif p.type == 'number' %}
+                <div class="mt-1 small text-muted">
+                    {% if p.min is defined %}Min: {{ p.min }}{% endif %}
+                    {% if p.max is defined %} · Max: {{ p.max }}{% endif %}
+                    {% if p.step is defined %} · Pas: {{ p.step }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% set vc = produs.variante_config %}
+    {% if vc.get('use_variants') and vc.get('variants') %}
+    <div class="bg-white rounded-3 p-3 mb-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-diagram-3 me-2"></i>Variante ({{ vc.variants|length }})</h6>
+        <table class="table table-sm table-hsl mb-0">
+        <thead><tr><th>Cod Complet</th><th>Combinație</th><th>Preț</th><th>Stoc</th></tr></thead>
+        <tbody>
+        {% for v in vc.variants %}
+        {% set suffix = v.suffix or v.code or '' %}
+        {% set full_code = suffix if suffix.startswith(produs.cod) else produs.cod ~ suffix %}
+        <tr>
+            <td><code class="fw-bold">{{ full_code }}</code></td>
+            <td>{% set combo = v.combination or v.params or {} %}
+                {% for k, val in combo.items() %}<span class="badge bg-light text-dark me-1">{{ k }}: {{ val }}</span>{% endfor %}</td>
+            <td class="fw-bold">{{ '{:,.2f}'.format(v.pret or v.price or 0) }} €</td>
+            <td>{% set si = stoc_items|selectattr('cod','equalto',full_code)|first %}
+                {% if si and si.total > 0 %}<span class="badge bg-success">{{ si.total|int }}</span>
+                {% else %}<span class="text-muted">0</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody></table>
+    </div>
+    {% endif %}
+
+    {% if compats %}
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold mb-3"><i class="bi bi-puzzle me-2"></i>Accesorii Compatibile ({{ compats|length }})</h6>
+        <table class="table table-sm table-hsl mb-0">
+        <thead><tr><th>Cod</th><th>Accesoriu</th><th>Preț</th><th>Compatibilitate</th></tr></thead>
+        <tbody>
+        {% for acc, status in compats %}
+        <tr>
+            <td><code>{{ acc.cod }}</code></td>
+            <td>{{ acc.denumire }}</td>
+            <td>{{ '{:,.2f}'.format(acc.pret) }} € <span class="text-muted">({{ acc.pret_mode }})</span></td>
+            <td><span class="badge bg-{% if status=='standard' %}success{% else %}info{% endif %}">{{ status|title }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody></table>
+    </div>
+    {% endif %}
+
+    {% if not params and not vc.get('use_variants') and not compats %}
+    <div class="bg-white rounded-3 p-4 text-center text-muted">
+        <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+        Acest produs nu are parametri configurabili, variante sau accesorii definite.
+    </div>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

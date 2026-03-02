@@ -1,0 +1,47 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Notă Livrare {{ nota.numar }} - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-file-earmark-text me-2"></i>Notă de Livrare {{ nota.numar }}</h2>
+        <div class="d-flex gap-2 mt-1">
+            <span class="badge bg-primary fs-6">Livrată</span>
+            <span class="badge bg-light text-dark fs-6">Comandă: <a href="/admin/comenzi/{{ nota.comanda_id }}">{{ nota.comanda.numar }}</a></span>
+        </div>
+    </div>
+    <a href="/admin/wms/nota-livrare/{{ nota.id }}/pdf" target="_blank" class="btn btn-hsl">
+        <i class="bi bi-file-pdf me-1"></i>Descarcă PDF
+    </a>
+</div>
+
+<div class="row g-4">
+<div class="col-md-6">
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold">Detalii Livrare</h6>
+        <table class="table table-sm mb-0">
+            <tr><td class="text-muted">Client</td><td class="fw-bold">{{ nota.client.nume if nota.client else '-' }}</td></tr>
+            {% if nota.client and nota.client.cui %}<tr><td class="text-muted">CUI</td><td>{{ nota.client.cui }}</td></tr>{% endif %}
+            <tr><td class="text-muted">Adresa</td><td>{{ nota.adresa_livrare or (nota.client.adresa if nota.client else '-') }}</td></tr>
+            <tr><td class="text-muted">Data</td><td>{{ nota.data_creare.strftime('%d.%m.%Y') }}</td></tr>
+            <tr><td class="text-muted">Picking</td><td><a href="/admin/wms/picking/{{ nota.picking_id }}">{{ nota.picking.numar }}</a></td></tr>
+        </table>
+    </div>
+</div>
+<div class="col-md-6">
+    <div class="bg-white rounded-3 p-3">
+        <h6 class="fw-bold">Produse Livrate</h6>
+        <table class="table table-sm table-hsl mb-0">
+        <thead><tr><th>Cod</th><th>Denumire</th><th>Cantitate</th></tr></thead>
+        <tbody>
+        {% for l in nota.picking.linii %}
+        <tr>
+            <td><code>{{ l.cod_intern }}</code></td>
+            <td>{{ l.denumire or '' }}</td>
+            <td><strong>{{ l.cantitate_preluata|int }} {{ l.um }}</strong></td>
+        </tr>
+        {% endfor %}
+        </tbody></table>
+    </div>
+</div>
+</div>
+{% endblock %}

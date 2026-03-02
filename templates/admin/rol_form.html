@@ -1,0 +1,78 @@
+{% extends 'admin/layout.html' %}
+{% block title %}{{ 'Editează Rol' if rol else 'Rol Nou' }} - HSL ERP{% endblock %}
+{% block head %}
+<style>
+.module-group{border:1px solid #e9ecef;border-radius:8px;padding:12px 16px;margin-bottom:12px;background:#fafafa}
+.module-group h6{font-size:.8rem;font-weight:700;color:#1D2F34;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #61993B}
+.module-group .form-check{margin-bottom:6px}
+.module-group .form-check-label{font-size:.88rem}
+.module-group .form-check-label i{opacity:.5}
+.module-group .sub-module{margin-left:24px;font-size:.82rem;color:#666}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-shield-lock me-2"></i>{{ 'Editează Rol' if rol else 'Rol Nou' }}</h2>
+    <a href="/admin/roluri" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Înapoi</a>
+</div>
+<div class="bg-white rounded-3 p-4" style="max-width:750px">
+{% if rol and rol.is_system %}
+<div class="alert alert-info">Rolul Admin (System) are acces complet la toate modulele și nu poate fi modificat.</div>
+{% else %}
+<form method="POST">
+    <div class="row">
+    <div class="col-md-6 mb-3"><label class="form-label">Nume Rol</label>
+        <input name="nume" class="form-control" value="{{ rol.nume if rol else '' }}" required placeholder="ex: Agent Vânzări"></div>
+    <div class="col-md-6 mb-3"><label class="form-label">Descriere</label>
+        <input name="descriere" class="form-control" value="{{ rol.descriere if rol else '' }}" placeholder="ex: Acces la configurator și oferte"></div>
+    </div>
+    <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="doar_proprii" id="dp" {{ 'checked' if not rol or rol.doar_proprii }}>
+            <label class="form-check-label" for="dp"><strong>Doar documente proprii</strong>
+            <small class="text-muted d-block">Dacă e bifat, utilizatorul vede doar ofertele/comenzile create de el. Debifat = vede tot.</small></label>
+        </div>
+    </div>
+    <hr>
+    <h6 class="fw-bold mb-3"><i class="bi bi-key me-2"></i>Acces la Module</h6>
+    <p class="text-muted small mb-3">Bifează modulele la care acest rol are acces. Rolul Admin are acces automat la tot.</p>
+
+    {% set perms = rol.get_permisiuni() if rol else {} %}
+
+    {% for grp in MODULE_GROUPS %}
+    <div class="module-group">
+        <h6>{{ grp }}</h6>
+        <div class="row">
+        {% for key, label, icon, g in MODULES %}
+        {% if g == grp %}
+        {% set is_sub = '→' in label %}
+        <div class="col-md-6">
+            <div class="form-check {{ 'sub-module' if is_sub }}">
+                <input class="form-check-input" type="checkbox" name="{{ key }}" id="mod-{{ key }}" {{ 'checked' if perms.get(key) }}>
+                <label class="form-check-label" for="mod-{{ key }}">
+                    <i class="{{ icon }} me-1"></i>{{ label }}
+                </label>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-hsl w-100 mt-3">💾 {{ 'Salvează Modificările' if rol else 'Creează Rol' }}</button>
+</form>
+{% if rol %}
+<hr>
+<div class="d-flex justify-content-between align-items-center">
+    <small class="text-muted">{{ rol.utilizatori.count() }} utilizatori cu acest rol</small>
+    {% if rol.utilizatori.count() == 0 %}
+    <form method="POST" action="/admin/roluri/{{ rol.id }}/sterge">
+        <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Sigur ștergi rolul?')">🗑️ Șterge Rol</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+</div>
+{% endblock %}

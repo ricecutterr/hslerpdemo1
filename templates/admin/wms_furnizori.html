@@ -1,0 +1,26 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Furnizori - HSL ERP{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-truck me-2"></i>Furnizori</h2>
+    <a href="/admin/wms/furnizori/nou" class="btn btn-hsl"><i class="bi bi-plus-lg me-1"></i>Furnizor Nou</a>
+</div>
+<div class="bg-white rounded-3 p-3">
+{% if furnizori %}
+<table class="table table-hover mb-0">
+<thead><tr><th>Nume</th><th>CUI</th><th>Contact</th><th>Telefon</th><th>Email</th><th>Status</th></tr></thead>
+<tbody>
+{% for f in furnizori %}
+<tr onclick="location.href='/admin/wms/furnizori/{{ f.id }}'" style="cursor:pointer">
+    <td class="fw-bold">{{ f.nume }}</td>
+    <td>{{ f.cui or '-' }}</td>
+    <td>{{ f.contact or '-' }}</td>
+    <td>{{ f.telefon or '-' }}</td>
+    <td>{{ f.email or '-' }}</td>
+    <td><span class="badge bg-{% if f.activ %}success{% else %}secondary{% endif %}">{{ 'Activ' if f.activ else 'Inactiv' }}</span></td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}<p class="text-muted text-center py-4">Niciun furnizor. <a href="/admin/wms/furnizori/nou">Adaugă primul →</a></p>{% endif %}
+</div>
+{% endblock %}
