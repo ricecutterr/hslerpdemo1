@@ -1,0 +1,50 @@
+:root {
+    --hsl-green: #61993B;
+    --hsl-dark: #1D2F34;
+    --hsl-white: #FFFFFF;
+    --hsl-light: #f5f7f9;
+}
+body { background: var(--hsl-light); font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+
+/* Sidebar */
+.sidebar {
+    width: 240px; min-height: 100vh; background: var(--hsl-dark);
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.sidebar .nav-link { color: rgba(255,255,255,.7); border-radius: 8px; margin: 1px 0; padding: 8px 12px; font-size: .9rem; }
+.sidebar .nav-link:hover { color: #fff; background: rgba(255,255,255,.1); }
+.sidebar .nav-link.active { color: #fff; background: var(--hsl-green); }
+.sidebar .nav-section { color: rgba(255,255,255,.4); font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; padding: 12px 12px 4px; font-weight: 600; }
+
+/* Cards */
+.stat-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); transition: transform .2s; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.stat-card .number { font-size: 2rem; font-weight: 700; color: var(--hsl-dark); }
+.stat-card .label { font-size: .85rem; color: #6c757d; }
+.stat-card.green { border-left: 4px solid var(--hsl-green); }
+.stat-card.blue { border-left: 4px solid #0d6efd; }
+.stat-card.orange { border-left: 4px solid #fd7e14; }
+.stat-card.red { border-left: 4px solid #dc3545; }
+
+/* Tables */
+.table-hsl thead th { background: var(--hsl-dark); color: white; font-weight: 500; font-size: .85rem; border: none; }
+.table-hsl tbody tr { transition: background .15s; }
+.table-hsl tbody tr:hover { background: #e8f5e0; cursor: pointer; }
+.table-hsl tbody tr.selected, .table tbody tr.selected { background: #b8e09a !important; box-shadow: inset 4px 0 0 var(--hsl-green); }
+
+/* Admin panel table rows */
+.table-hover tbody tr:hover { background: #e8f5e0 !important; cursor: pointer; }
+
+/* Badges */
+.badge-status { padding: 5px 10px; border-radius: 20px; font-size: .8rem; font-weight: 500; }
+
+/* Buttons */
+.btn-hsl { background: var(--hsl-green); color: white; border: none; }
+.btn-hsl:hover { background: #4e7d2f; color: white; }
+
+/* Page header */
+.page-header { margin-bottom: 24px; }
+.page-header h2 { font-weight: 700; color: var(--hsl-dark); margin: 0; }
+
+/* Flow indicator */
+.flow-arrow { color: var(--hsl-green); font-size: 1.2rem; margin: 0 8px; }
